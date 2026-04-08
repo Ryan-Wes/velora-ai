@@ -2,6 +2,8 @@ from sqlite3 import IntegrityError
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.services.file_classifier import detect_nubank_csv_type
+
 from app.services.file_classifier import (
     detect_file_format,
     detect_source_name,
@@ -9,6 +11,7 @@ from app.services.file_classifier import (
 )
 from app.services.import_service import create_import
 from app.services.parsers.credit_card_csv_parser import parse_credit_card_csv
+from app.services.parsers.bank_account_csv_parser import parse_bank_account_csv
 from app.services.transaction_service import save_transactions
 from app.services.pdf_text_reader import extract_text_from_pdf
 from app.services.source_detector import detect_source_type_from_text
@@ -55,7 +58,10 @@ async def upload_file(file: UploadFile = File(...)):
             source_type = detect_source_type_from_text(extracted_text)
 
     if file_format == "csv" and source_name == "nubank":
-        source_type = "credit_card"
+        detected_csv_type = detect_nubank_csv_type(file_bytes)
+
+        if detected_csv_type != "unknown":
+            source_type = detected_csv_type
 
     try:
         import_id = create_import(
@@ -69,11 +75,19 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=409, detail="File already imported")
 
     if file_format == "csv" and source_name == "nubank":
-        transactions = parse_credit_card_csv(file_bytes)
-        save_result = save_transactions(
-            import_id=import_id,
-            transactions=transactions,
-        )
+        if source_type == "credit_card":
+            transactions = parse_credit_card_csv(file_bytes)
+
+        elif source_type == "bank_account":
+            transactions = parse_bank_account_csv(file_bytes)
+
+        parsed_transactions = transactions
+
+        if transactions:
+            save_result = save_transactions(
+                import_id=import_id,
+                transactions=transactions,
+            )
 
     return {
         "import_id": import_id,
