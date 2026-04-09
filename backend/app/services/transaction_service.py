@@ -79,17 +79,43 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
     }
 
 
-def list_transactions() -> list[dict]:
+def list_transactions(
+    month: str | None = None,
+    transaction_type: str | None = None,
+    source: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
     with get_connection() as connection:
         cursor = connection.cursor()
 
-        cursor.execute(
-            """
+        query = """
             SELECT *
             FROM transactions
-            ORDER BY transaction_date DESC, id DESC
-            """
-        )
+            WHERE 1=1
+        """
+
+        params = []
+
+        if month:
+            query += " AND competency_month = ?"
+            params.append(month)
+
+        if transaction_type:
+            query += " AND transaction_type = ?"
+            params.append(transaction_type)
+
+        if source:
+            query += " AND source_type = ?"
+            params.append(source)
+
+        query += " ORDER BY transaction_date DESC, id DESC"
+        query += " LIMIT ? OFFSET ?"
+
+        params.append(limit)
+        params.append(offset)
+
+        cursor.execute(query, params)
 
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
