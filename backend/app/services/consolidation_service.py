@@ -1,16 +1,23 @@
 from app.services.transaction_service import list_transactions
 
 
+from app.services.transaction_service import list_transactions
+
+
 def consolidate_transactions(
     month: str | None = None,
     transaction_type: str | None = None,
     source: str | None = None,
 ) -> dict:
-    transactions = list_transactions(
+    transactions_data = list_transactions(
         month=month,
         transaction_type=transaction_type,
         source=source,
+        limit=100000,
+        offset=0,
     )
+
+    transactions = transactions_data["items"]
 
     total_income = 0.0
     total_expenses = 0.0
