@@ -15,6 +15,7 @@ function App() {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [months, setMonths] = useState([])
 
   // ✅ NOVO: estado de filtros
   const [filters, setFilters] = useState({
@@ -35,8 +36,18 @@ function App() {
         if (filters.month) queryParams.append('month', filters.month)
         if (filters.type) queryParams.append('type', filters.type)
         if (filters.source) queryParams.append('source', filters.source)
+        queryParams.append('limit', 100)
 
         const queryString = queryParams.toString()
+
+        const monthsResponse = await fetch('http://127.0.0.1:8000/api/transactions/months')
+
+        if (!monthsResponse.ok) {
+          throw new Error('Erro ao buscar meses')
+        }
+
+        const monthsData = await monthsResponse.json()
+        setMonths(monthsData.months || [])
 
         const [transactionsResponse, summaryResponse] = await Promise.all([
           fetch(`http://127.0.0.1:8000/api/transactions?${queryString}`),
@@ -74,11 +85,26 @@ function App() {
     refund: 'Estorno',
   }
 
+  const transactionTypeLabels = {
+    purchase: 'Compra Cartão',
+    pix_out: 'Pix Enviado',
+    pix_in: 'Pix Recebido',
+    transfer_in: 'Transf. Receb.',
+    transfer_out: 'Transf. Env.',
+    bill_payment: 'Pag. Boleto',
+    credit_card_bill_payment: 'Fatura Cartão',
+    investment_application: 'Aplicação Caix.',
+    investment_redemption: 'Resgate Caix.',
+    refund: 'Estorno',
+    iof: 'Taxa IOF',
+    bank_transaction: 'Mov. Bancária',
+  }
+
   const chartData =
-  summary?.by_type?.map((item) => ({
-    name: typeLabels[item.transaction_type] || item.transaction_type,
-    value: item.income_total + item.expense_total,
-  })) || []
+    summary?.by_type?.map((item) => ({
+      name: transactionTypeLabels[item.transaction_type] || item.transaction_type,
+      value: item.income_total + item.expense_total,
+    })) || []
 
   const sourceLabels = {
     bank_account: 'Conta Bancária',
@@ -86,13 +112,14 @@ function App() {
   }
 
   const sourceChartData =
-  summary?.by_source_type?.map((item) => ({
-    name: sourceLabels[item.source_type] || item.source_type,
-    value: item.income_total + item.expense_total,
-  })) || []
+    summary?.by_source_type?.map((item) => ({
+      name: sourceLabels[item.source_type] || item.source_type,
+      value: item.income_total + item.expense_total,
+    })) || []
 
   if (loading) return <h1>Carregando...</h1>
   if (error) return <h1>{error}</h1>
+
 
   return (
     <main>
@@ -101,6 +128,11 @@ function App() {
         <header className="header">
           <h1>FinSight AI</h1>
           <p>Análise real do seu fluxo financeiro</p>
+          <div style={{ marginTop: '16px' }}>
+            <a href="/transactions" style={{ color: '#a78bfa', textDecoration: 'none' }}>
+              Ver transações →
+            </a>
+          </div>
         </header>
 
         {/* 🔥 FILTROS */}
@@ -112,8 +144,12 @@ function App() {
             }
           >
             <option value="">Todos os meses</option>
-            <option value="2026-04">Abril 2026</option>
-            <option value="2026-03">Março 2026</option>
+
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
           </select>
 
           <select
@@ -123,10 +159,20 @@ function App() {
             }
           >
             <option value="">Todos os tipos</option>
+
+            <option value="credit_card_bill_payment">Fatura Cartão</option>
+            <option value="purchase">Compra no Cartão</option>
+
             <option value="pix_out">Pix Enviado</option>
             <option value="pix_in">Pix Recebido</option>
+
             <option value="transfer_out">Transferência Enviada</option>
             <option value="transfer_in">Transferência Recebida</option>
+
+            <option value="bill_payment">Boleto</option>
+            <option value="investment_application">Aplicação</option>
+            <option value="investment_redemption">Resgate</option>
+            <option value="refund">Estorno</option>
           </select>
 
           <select
@@ -196,33 +242,7 @@ function App() {
           </div>
         </section>
 
-        <section className="table-container">
-          <h2>Transações</h2>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th>Tipo</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.transaction_date}</td>
-                  <td>{t.raw_description}</td>
-                  <td>{t.transaction_type}</td>
-                  <td className={`value ${t.direction === 'out' ? 'red' : 'green'}`}>
-                    {t.direction === 'out' ? '-' : '+'} R$ {Number(t.absolute_amount).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
 
       </div>
     </main>

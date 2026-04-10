@@ -14,10 +14,15 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px;
+  text-align: center;
 }
 
 .header {
   margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  
+  
 }
 
 .header h1 {
@@ -68,7 +73,11 @@ body {
 }
 
 .table-container h2 {
-  margin-bottom: 24px;
+  text-align: center;
+}
+
+.table-container p {
+  text-align: center;
 }
 
 table {
@@ -76,14 +85,28 @@ table {
   border-collapse: collapse;
 }
 
+thead th {
+  text-align: center;
+}
+
 th, td {
   padding: 12px;
   text-align: left;
 }
 
+td:nth-child(1), td:nth-child(3), td:nth-child(5) {
+  white-space: nowrap;
+}
+
+td:nth-child(5) {
+  text-align: right;
+}
+
 thead {
   border-bottom: 1px solid #27272a;
 }
+
+
 
 tbody tr {
   border-bottom: 1px solid #1f1f2e;
@@ -101,6 +124,7 @@ tbody tr:hover {
   display: flex;
   gap: 12px;
   margin-bottom: 24px;
+  justify-content: center;
 }
 
 .filters select {
@@ -109,4 +133,18 @@ tbody tr:hover {
   color: #fff;
   border: 1px solid #1f1f2e;
   border-radius: 8px;
+}
+
+button {
+  padding: 10px 16px;
+  background: #141420;
+  color: #fff;
+  border: 1px solid #1f1f2e;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
