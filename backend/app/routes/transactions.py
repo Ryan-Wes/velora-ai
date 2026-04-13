@@ -31,6 +31,12 @@ def get_available_months():
     return {"months": months}
 
 
+@router.get("/transactions/categories")
+def get_available_categories():
+    categories = transaction_service.get_available_categories()
+    return {"categories": categories}
+
+
 @router.patch("/transactions/{transaction_id}/category")
 def update_transaction_category(
     transaction_id: int,

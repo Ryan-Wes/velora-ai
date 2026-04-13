@@ -4,17 +4,17 @@ from datetime import datetime, timedelta
 
 MONTH_MAP = {
     "JAN": 1,
-    "FEB": 2,
+    "FEV": 2,
     "MAR": 3,
-    "APR": 4,
-    "MAY": 5,
+    "ABR": 4,
+    "MAI": 5,
     "JUN": 6,
     "JUL": 7,
-    "AUG": 8,
-    "SEP": 9,
-    "OCT": 10,
+    "AGO": 8,
+    "SET": 9,
+    "OUT": 10,
     "NOV": 11,
-    "DEC": 12,
+    "DEZ": 12,
 }
 
 

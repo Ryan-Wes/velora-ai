@@ -1,6 +1,4 @@
-from app.services.transaction_service import list_transactions
-
-
+from app.database import get_connection
 from app.services.transaction_service import list_transactions
 
 
@@ -62,9 +60,6 @@ def consolidate_transactions(
             internal_transfer_transactions.append(transaction)
 
     net_cashflow = real_income - real_expenses
-
-    by_type = build_consolidated_by_type(transactions)
-    by_source_type = build_consolidated_by_source_type(transactions)
 
     return {
         "transactions_count": len(transactions),
@@ -206,3 +201,108 @@ def build_consolidated_by_source_type(transactions: list[dict]) -> list[dict]:
             item["source_type"],
         ),
     )
+
+
+def get_by_category_summary(
+    month: str | None = None,
+    transaction_type: str | None = None,
+    source: str | None = None,
+) -> list[dict]:
+    transactions_data = list_transactions(
+        month=month,
+        transaction_type=transaction_type,
+        source=source,
+        limit=100000,
+        offset=0,
+    )
+
+    transactions = transactions_data["items"]
+    grouped = {}
+
+    for transaction in transactions:
+        category = transaction["category"] or "Sem categoria"
+        is_ignored = int(transaction["is_ignored_in_spending"])
+        is_internal = int(transaction["is_internal_transfer"])
+
+        if is_ignored or is_internal:
+            continue
+        direction = transaction["direction"]
+        absolute_amount = float(transaction["absolute_amount"])
+
+        if category not in grouped:
+            grouped[category] = {
+                "category": category,
+                "count": 0,
+                "income_total": 0.0,
+                "expense_total": 0.0,
+            }
+
+        grouped[category]["count"] += 1
+
+        if direction == "in":
+            grouped[category]["income_total"] += absolute_amount
+        elif direction == "out":
+            grouped[category]["expense_total"] += absolute_amount
+
+    return sorted(
+        [
+            {
+                "category": item["category"],
+                "count": item["count"],
+                "income_total": round(item["income_total"], 2),
+                "expense_total": round(item["expense_total"], 2),
+            }
+            for item in grouped.values()
+        ],
+        key=lambda item: (-item["expense_total"], -item["count"], item["category"]),
+    )
+
+def get_monthly_trend_summary(
+    transaction_type: str | None = None,
+    source: str | None = None,
+) -> list[dict]:
+    transactions_data = list_transactions(
+        month=None,
+        transaction_type=transaction_type,
+        source=source,
+        limit=100000,
+        offset=0,
+    )
+
+    transactions = transactions_data["items"]
+    grouped = {}
+
+    for transaction in transactions:
+        month = transaction["transaction_date"][:7]
+        direction = transaction["direction"]
+        absolute_amount = float(transaction["absolute_amount"])
+        is_ignored_in_spending = int(transaction["is_ignored_in_spending"])
+        is_internal_transfer = int(transaction["is_internal_transfer"])
+
+        if month not in grouped:
+            grouped[month] = {
+                "month": month,
+                "income": 0.0,
+                "expenses": 0.0,
+                "cashflow": 0.0,
+            }
+
+        if not is_ignored_in_spending and not is_internal_transfer:
+            if direction == "in":
+                grouped[month]["income"] += absolute_amount
+            elif direction == "out":
+                grouped[month]["expenses"] += absolute_amount
+
+        grouped[month]["cashflow"] = (
+            grouped[month]["income"] - grouped[month]["expenses"]
+        )
+
+    return [
+        {
+            "month": month,
+            "income": round(data["income"], 2),
+            "expenses": round(data["expenses"], 2),
+            "cashflow": round(data["cashflow"], 2),
+        }
+        for month, data in sorted(grouped.items())
+    ]

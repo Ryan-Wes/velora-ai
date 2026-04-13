@@ -212,8 +212,53 @@ def get_available_months():
 
     return months
 
+def format_category_name(category: str) -> str:
+    cleaned = " ".join(category.strip().split())
+
+    if not cleaned:
+        return ""
+
+    parts = cleaned.split("/")
+
+    formatted_parts = []
+    for part in parts:
+        normalized_part = part.strip()
+        if not normalized_part:
+            continue
+
+        words = normalized_part.split()
+        formatted_words = [word[:1].upper() + word[1:].lower() for word in words]
+        formatted_parts.append(" ".join(formatted_words))
+
+    return "/".join(formatted_parts)
+
+
+def get_available_categories() -> list[str]:
+    with get_connection() as connection:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT DISTINCT category
+            FROM transactions
+            WHERE category IS NOT NULL
+              AND TRIM(category) != ''
+            ORDER BY category COLLATE NOCASE ASC
+            """
+        )
+
+        return [row["category"] for row in cursor.fetchall()]
+
 
 def update_transaction_category(transaction_id: int, category: str) -> dict:
+    formatted_category = format_category_name(category)
+
+    if not formatted_category:
+        return {
+            "success": False,
+            "message": "Category cannot be empty",
+        }
+
     with get_connection() as connection:
         cursor = connection.cursor()
 
@@ -225,7 +270,7 @@ def update_transaction_category(transaction_id: int, category: str) -> dict:
                 category_reviewed = ?
             WHERE id = ?
             """,
-            (category, "manual", 1, transaction_id),
+            (formatted_category, "manual", 1, transaction_id),
         )
 
         connection.commit()
@@ -240,7 +285,7 @@ def update_transaction_category(transaction_id: int, category: str) -> dict:
         "success": True,
         "message": "Category updated successfully",
         "transaction_id": transaction_id,
-        "category": category,
+        "category": formatted_category,
         "category_source": "manual",
         "category_reviewed": 1,
     }

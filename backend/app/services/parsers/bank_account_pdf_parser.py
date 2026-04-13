@@ -134,11 +134,20 @@ def build_flags(transaction_type: str) -> tuple[int, int]:
     is_ignored_in_spending = 0
     is_internal_transfer = 0
 
+    # investimentos → não entram no gasto
     if transaction_type in {
         "investment_application",
         "investment_redemption",
     }:
         is_ignored_in_spending = 1
+
+    # transferências internas → não são gasto real
+    if transaction_type in {
+        "transfer_in",
+        "transfer_out",
+        "credit_card_bill_payment",
+    }:
+        is_internal_transfer = 1
 
     return is_ignored_in_spending, is_internal_transfer
 

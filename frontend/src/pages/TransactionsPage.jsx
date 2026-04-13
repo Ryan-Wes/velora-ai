@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../index.css'
 
-const CATEGORY_OPTIONS = [
+const DEFAULT_CATEGORY_OPTIONS = [
   'alimentacao',
   'mercado',
   'compras',
@@ -16,7 +16,6 @@ const CATEGORY_OPTIONS = [
   'investimentos',
   'movimentacoes',
   'outros',
-  '__custom__',
 ]
 
 function TransactionsPage() {
@@ -26,6 +25,10 @@ function TransactionsPage() {
   const [error, setError] = useState('')
   const [total, setTotal] = useState(0)
   const [savingId, setSavingId] = useState(null)
+  const [categoryOptions, setCategoryOptions] = useState([
+    ...DEFAULT_CATEGORY_OPTIONS,
+    '__custom__',
+  ])
 
   const [filters, setFilters] = useState({
     month: '',
@@ -96,6 +99,35 @@ function TransactionsPage() {
     }
 
     fetchMonths()
+  }, [])
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/transactions/categories')
+
+        if (!response.ok) {
+          throw new Error('Erro ao buscar categorias')
+        }
+
+        const data = await response.json()
+        const customCategories = data.categories || []
+
+        const mergedCategories = [
+          ...DEFAULT_CATEGORY_OPTIONS,
+          ...customCategories.filter(
+            (category) => !DEFAULT_CATEGORY_OPTIONS.includes(category)
+          ),
+          '__custom__',
+        ]
+
+        setCategoryOptions(mergedCategories)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+    fetchCategories()
   }, [])
 
   useEffect(() => {
@@ -183,6 +215,7 @@ function TransactionsPage() {
   function openEditModal(transaction) {
     setSelectedTransaction(transaction)
     setSelectedCategory(transaction.category || 'outros')
+    setCustomCategory('')
   }
 
   function closeEditModal() {
@@ -191,10 +224,24 @@ function TransactionsPage() {
     setCustomCategory('')
   }
 
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape' && selectedTransaction) {
+        closeEditModal()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedTransaction])
+
   async function saveCategory() {
     const finalCategory =
       selectedCategory === '__custom__'
-        ? customCategory.trim().toLowerCase()
+        ? customCategory.trim()
         : selectedCategory
 
     if (!finalCategory) {
@@ -223,18 +270,36 @@ function TransactionsPage() {
         throw new Error('Erro ao atualizar categoria')
       }
 
+      const updatedData = await response.json()
+
+      if (!updatedData.success) {
+        throw new Error(updatedData.message || 'Erro ao atualizar categoria')
+      }
+
       setTransactions((prevTransactions) =>
         prevTransactions.map((transaction) =>
           transaction.id === selectedTransaction.id
             ? {
-              ...transaction,
-              category: finalCategory,
-              category_source: 'manual',
-              category_reviewed: 1,
-            }
+                ...transaction,
+                category: updatedData.category,
+                category_source: 'manual',
+                category_reviewed: 1,
+              }
             : transaction
         )
       )
+
+      setCategoryOptions((prevOptions) => {
+        const nextOptions = prevOptions.filter((option) => option !== '__custom__')
+
+        if (!nextOptions.includes(updatedData.category)) {
+          nextOptions.push(updatedData.category)
+        }
+
+        nextOptions.sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
+        return [...nextOptions, '__custom__']
+      })
 
       closeEditModal()
     } catch (err) {
@@ -338,13 +403,19 @@ function TransactionsPage() {
                 <th>Categoria</th>
                 <th>Definição</th>
                 <th>Valor</th>
-                <th>Ação</th>
               </tr>
             </thead>
 
             <tbody>
               {transactions.map((transaction) => (
-                <tr key={transaction.id}>
+                <tr
+                  key={transaction.id}
+                  className={`${
+                    transaction.category === 'outros' ? 'row-needs-category' : ''
+                  } ${
+                    Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''
+                  }`}
+                >
                   <td>{formatDate(transaction.transaction_date)}</td>
                   <td>{transaction.raw_description}</td>
                   <td>
@@ -355,23 +426,27 @@ function TransactionsPage() {
                     {sourceLabels[transaction.source_type] || transaction.source_type}
                   </td>
                   <td>
-                    <span
-                      className={
-                        transaction.category === 'outros'
-                          ? 'category-badge category-outros'
-                          : 'category-badge'
-                      }
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(transaction)}
+                      className={`category-badge category-trigger ${
+                        transaction.category === 'outros' ? 'category-outros' : ''
+                      }`}
                     >
-                      {categoryLabels[transaction.category] || transaction.category || '-'}
-                    </span>
+                      <span>
+                        {categoryLabels[transaction.category] || transaction.category}
+                        {transaction.category === 'outros' && ' • revisar'}
+                      </span>
+                      <span className="category-chevron">˅</span>
+                    </button>
                   </td>
                   <td>
                     <span
-                      className={
+                      className={`source-badge ${
                         transaction.category_source === 'manual'
-                          ? 'source-badge source-manual'
-                          : 'source-badge source-auto'
-                      }
+                          ? 'source-manual'
+                          : 'source-auto'
+                      }`}
                     >
                       {transaction.category_source === 'manual' ? 'Manual' : 'Auto'}
                     </span>
@@ -379,14 +454,6 @@ function TransactionsPage() {
                   <td className={transaction.direction === 'in' ? 'green' : 'red'}>
                     {transaction.direction === 'in' ? '+' : '-'}{' '}
                     {formatCurrency(transaction.absolute_amount)}
-                  </td>
-                  <td>
-                    <button
-                      className="filter-button"
-                      onClick={() => openEditModal(transaction)}
-                    >
-                      Editar
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -459,12 +526,13 @@ function TransactionsPage() {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="modal-select"
               >
-                {CATEGORY_OPTIONS.map((category) => (
+                {categoryOptions.map((category) => (
                   <option key={category} value={category}>
                     {categoryLabels[category] || category}
                   </option>
                 ))}
               </select>
+
               {selectedCategory === '__custom__' && (
                 <input
                   type="text"
