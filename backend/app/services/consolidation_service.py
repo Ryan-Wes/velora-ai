@@ -1,5 +1,4 @@
-from app.database import get_connection
-from app.services.transaction_service import list_transactions
+from app.services.transaction_service import list_transactions, normalize_category_name
 
 
 def consolidate_transactions(
@@ -220,12 +219,14 @@ def get_by_category_summary(
     grouped = {}
 
     for transaction in transactions:
-        category = transaction["category"] or "Sem categoria"
+        raw_category = transaction["category"]
+        category = normalize_category_name(raw_category) or "sem categoria"
         is_ignored = int(transaction["is_ignored_in_spending"])
         is_internal = int(transaction["is_internal_transfer"])
 
         if is_ignored or is_internal:
             continue
+
         direction = transaction["direction"]
         absolute_amount = float(transaction["absolute_amount"])
 
@@ -257,6 +258,7 @@ def get_by_category_summary(
         key=lambda item: (-item["expense_total"], -item["count"], item["category"]),
     )
 
+
 def get_monthly_trend_summary(
     transaction_type: str | None = None,
     source: str | None = None,
@@ -276,8 +278,6 @@ def get_monthly_trend_summary(
         month = transaction["transaction_date"][:7]
         direction = transaction["direction"]
         absolute_amount = float(transaction["absolute_amount"])
-        is_ignored_in_spending = int(transaction["is_ignored_in_spending"])
-        is_internal_transfer = int(transaction["is_internal_transfer"])
 
         if month not in grouped:
             grouped[month] = {
@@ -289,7 +289,6 @@ def get_monthly_trend_summary(
 
         if direction == "in":
             grouped[month]["income"] += absolute_amount
-
         elif direction == "out":
             grouped[month]["expenses"] += absolute_amount
 

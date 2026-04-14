@@ -13,6 +13,8 @@ import {
   Cell,
 } from 'recharts'
 
+
+
 function App() {
   const [transactions, setTransactions] = useState([])
   const [summary, setSummary] = useState(null)
@@ -26,7 +28,38 @@ function App() {
     month: '',
   })
 
-  const COLORS = ['#a78bfa', '#22c55e', '#ef4444', '#facc15', '#38bdf8', '#f97316']
+  const CATEGORY_COLORS = {
+    alimentacao: '#ef4444',
+    mercado: '#22c55e',
+    compras: '#f97316',
+    transporte: '#38bdf8',
+    carro: '#facc15',
+    roupas: '#ec4899',
+    saude: '#06b6d4',
+    casa: '#8b5cf6',
+    assinaturas: '#6366f1',
+    lazer: '#14b8a6',
+    investimentos: '#10b981',
+    movimentacoes: '#64a2fa',
+    outros: '#a78bfa',
+    aluguel: '#f59e0b',
+    telefone: '#0ea5e9',
+    internet: '#7c3aed',
+    'sem categoria': '#eeecec',
+  }
+
+  const FALLBACK_COLORS = [
+    '#a78bfa',
+    '#22c55e',
+    '#ef4444',
+    '#facc15',
+    '#38bdf8',
+    '#f97316',
+    '#ec4899',
+    '#14b8a6',
+    '#6366f1',
+    '#84cc16',
+  ]
 
   const formatCategory = (name) => {
     const map = {
@@ -49,6 +82,75 @@ function App() {
     }
 
     return map[name] || name
+  }
+
+  const getCategoryColor = (category) => {
+    if (!category) {
+      return '#71717a'
+    }
+
+    if (CATEGORY_COLORS[category]) {
+      return CATEGORY_COLORS[category]
+    }
+
+    let hash = 0
+
+    for (let i = 0; i < category.length; i += 1) {
+      hash = category.charCodeAt(i) + ((hash << 5) - hash)
+    }
+
+    const index = Math.abs(hash) % FALLBACK_COLORS.length
+
+    return FALLBACK_COLORS[index]
+  }
+
+  const renderDonutTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) {
+      return null
+    }
+
+    const item = payload[0]
+    const value = Number(item.value || 0)
+
+    const total = expenseByCategory.reduce(
+      (accumulator, category) => accumulator + Number(category.value || 0),
+      0
+    )
+
+    const percentage = total > 0 ? (value / total) * 100 : 0
+
+    return (
+      <div
+        style={{
+          background: '#111827',
+          border: '1px solid rgba(167, 139, 250, 0.25)',
+          borderRadius: '12px',
+          padding: '12px 14px',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: '14px',
+            color: '#e5e7eb',
+            fontWeight: 600,
+          }}
+        >
+          {formatCategory(item.name)}
+        </p>
+
+        <p
+          style={{
+            margin: '6px 0 0',
+            fontSize: '13px',
+            color: '#cbd5e1',
+          }}
+        >
+          {`R$ ${value.toFixed(2)} • ${percentage.toFixed(1)}%`}
+        </p>
+      </div>
+    )
   }
 
   useEffect(() => {
@@ -146,13 +248,27 @@ function App() {
   const monthlyExpenses = Number(summary?.total_expenses ?? 0)
   const monthlyBalance = monthlyIncome - monthlyExpenses
 
-  const expenseByCategory = byCategory
-    .filter((item) => item.expense_total > 0)
-    .map((item) => ({
-      name: item.category,
-      value: item.expense_total,
-    }))
-    .sort((a, b) => b.value - a.value)
+  const rawCategories = byCategory
+  .filter((item) => item.expense_total > 0)
+  .map((item) => ({
+    name: item.category,
+    value: item.expense_total,
+  }))
+  .sort((a, b) => b.value - a.value)
+
+const TOP_LIMIT = 5
+
+const topCategories = rawCategories.slice(0, TOP_LIMIT)
+const otherCategories = rawCategories.slice(TOP_LIMIT)
+
+const othersTotal = otherCategories.reduce(
+  (acc, item) => acc + item.value,
+  0
+)
+
+const expenseByCategory = othersTotal > 0
+  ? [...topCategories, { name: 'outros', value: othersTotal }]
+  : topCategories
 
   const donutLegendItems = expenseByCategory.slice(0, 6)
 
@@ -267,7 +383,7 @@ function App() {
                           data={
                             expenseByCategory.length
                               ? expenseByCategory
-                              : [{ name: 'Sem dados', value: 1 }]
+                              : [{ name: 'sem categoria', value: 1 }]
                           }
                           dataKey="value"
                           nameKey="name"
@@ -277,15 +393,15 @@ function App() {
                         >
                           {(expenseByCategory.length
                             ? expenseByCategory
-                            : [{ name: 'Sem dados', value: 1 }]
+                            : [{ name: 'sem categoria', value: 1 }]
                           ).map((entry, index) => (
                             <Cell
                               key={`month-cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
+                              fill={getCategoryColor(entry.name)}
                             />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip content={renderDonutTooltip} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -297,7 +413,7 @@ function App() {
                           <span
                             className="donut-legend-color"
                             style={{
-                              backgroundColor: COLORS[index % COLORS.length],
+                              backgroundColor: getCategoryColor(item.name),
                             }}
                           />
                           <span>{formatCategory(item.name)}</span>

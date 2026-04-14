@@ -18,6 +18,47 @@ const DEFAULT_CATEGORY_OPTIONS = [
   'outros',
 ]
 
+function formatCategoryLabel(category) {
+  if (!category) return ''
+
+  const wordMap = {
+    saude: 'Saúde',
+    alimentacao: 'Alimentação',
+    movimentacoes: 'Movimentações',
+    educacao: 'Educação',
+    ferias: 'Férias',
+    folga: 'Folga',
+    eletronicos: 'Eletrônicos',
+    moveis: 'Móveis',
+    credito: 'Crédito',
+    debito: 'Débito',
+    servicos: 'Serviços',
+    tecnologia: 'Tecnologia',
+    farmacia: 'Farmácia',
+    mecanica: 'Mecânica',
+  }
+
+  return category
+    .split('/')
+    .map((part) =>
+      part
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => {
+          const lower = word.toLowerCase()
+
+          if (wordMap[lower]) {
+            return wordMap[lower]
+          }
+
+          return lower.charAt(0).toUpperCase() + lower.slice(1)
+        })
+        .join(' ')
+    )
+    .join(' / ')
+}
+
 function TransactionsPage() {
   const [transactions, setTransactions] = useState([])
   const [months, setMonths] = useState([])
@@ -72,22 +113,7 @@ function TransactionsPage() {
     credit_card: 'Cartão',
   }
 
-  const categoryLabels = {
-    alimentacao: 'Alimentação',
-    mercado: 'Mercado',
-    compras: 'Compras',
-    transporte: 'Transporte',
-    carro: 'Carro',
-    roupas: 'Roupas',
-    saude: 'Saúde',
-    casa: 'Casa',
-    assinaturas: 'Assinaturas',
-    lazer: 'Lazer',
-    investimentos: 'Investimentos',
-    movimentacoes: 'Movimentações',
-    outros: 'Outros',
-    __custom__: 'Nova categoria personalizada',
-  }
+
 
   useEffect(() => {
     async function fetchMonths() {
@@ -125,8 +151,15 @@ function TransactionsPage() {
           ...customCategories.filter(
             (category) => !DEFAULT_CATEGORY_OPTIONS.includes(category)
           ),
-          '__custom__',
         ]
+
+        const sortedCategories = mergedCategories.sort((a, b) =>
+          formatCategoryLabel(a).localeCompare(formatCategoryLabel(b), 'pt-BR', {
+            sensitivity: 'base',
+          })
+        )
+
+        setCategoryOptions([...sortedCategories, '__custom__'])
 
         setCategoryOptions(mergedCategories)
       } catch (err) {
@@ -369,11 +402,11 @@ function TransactionsPage() {
         prevTransactions.map((transaction) =>
           transaction.id === selectedTransaction.id
             ? {
-                ...transaction,
-                category: updatedData.category,
-                category_source: 'manual',
-                category_reviewed: 1,
-              }
+              ...transaction,
+              category: updatedData.category,
+              category_source: 'manual',
+              category_reviewed: 1,
+            }
             : transaction
         )
       )
@@ -385,7 +418,11 @@ function TransactionsPage() {
           nextOptions.push(updatedData.category)
         }
 
-        nextOptions.sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        nextOptions.sort((a, b) =>
+          formatCategoryLabel(a).localeCompare(formatCategoryLabel(b), 'pt-BR', {
+            sensitivity: 'base',
+          })
+        )
 
         return [...nextOptions, '__custom__']
       })
@@ -614,11 +651,9 @@ function TransactionsPage() {
               {transactions.map((transaction) => (
                 <tr
                   key={transaction.id}
-                  className={`${
-                    transaction.category === 'outros' ? 'row-needs-category' : ''
-                  } ${
-                    Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''
-                  }`}
+                  className={`${transaction.category === 'outros' ? 'row-needs-category' : ''
+                    } ${Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''
+                    }`}
                 >
                   <td>{formatDate(transaction.transaction_date)}</td>
                   <td>{transaction.raw_description}</td>
@@ -633,12 +668,11 @@ function TransactionsPage() {
                     <button
                       type="button"
                       onClick={() => openEditModal(transaction)}
-                      className={`category-badge category-trigger ${
-                        transaction.category === 'outros' ? 'category-outros' : ''
-                      }`}
+                      className={`category-badge category-trigger ${transaction.category === 'outros' ? 'category-outros' : ''
+                        }`}
                     >
                       <span>
-                        {categoryLabels[transaction.category] || transaction.category}
+                        {formatCategoryLabel(transaction.category)}
                         {transaction.category === 'outros' && ' • revisar'}
                       </span>
                       <span className="category-chevron">˅</span>
@@ -646,11 +680,10 @@ function TransactionsPage() {
                   </td>
                   <td>
                     <span
-                      className={`source-badge ${
-                        transaction.category_source === 'manual'
-                          ? 'source-manual'
-                          : 'source-auto'
-                      }`}
+                      className={`source-badge ${transaction.category_source === 'manual'
+                        ? 'source-manual'
+                        : 'source-auto'
+                        }`}
                     >
                       {transaction.category_source === 'manual' ? 'Manual' : 'Auto'}
                     </span>
@@ -710,9 +743,7 @@ function TransactionsPage() {
 
               <p>
                 <strong>Categoria atual:</strong>{' '}
-                {categoryLabels[selectedTransaction.category] ||
-                  selectedTransaction.category ||
-                  '-'}
+                {formatCategoryLabel(selectedTransaction.category) || '-'}
               </p>
 
               <p>
@@ -732,7 +763,7 @@ function TransactionsPage() {
               >
                 {categoryOptions.map((category) => (
                   <option key={category} value={category}>
-                    {categoryLabels[category] || category}
+                    {formatCategoryLabel(category)}
                   </option>
                 ))}
               </select>

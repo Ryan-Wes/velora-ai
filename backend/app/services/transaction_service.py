@@ -1,6 +1,26 @@
+import re
+import unicodedata
 from sqlite3 import IntegrityError
-
+from app.services.category_service import map_to_main_and_subcategory
 from app.database import get_connection
+
+
+def normalize_category_name(category: str | None) -> str:
+    if category is None:
+        return ""
+
+    cleaned = " ".join(str(category).strip().split())
+
+    if not cleaned:
+        return ""
+
+    normalized = unicodedata.normalize("NFKD", cleaned)
+    normalized = normalized.encode("ascii", "ignore").decode("utf-8")
+    normalized = normalized.lower()
+    normalized = re.sub(r"\s*/\s*", "/", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+
+    return normalized.strip()
 
 
 def save_transactions(import_id: int, transactions: list[dict]) -> dict:
@@ -13,6 +33,13 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
 
         for transaction in transactions:
             try:
+                normalized_category = normalize_category_name(transaction.get("category"))
+                main_category, subcategory = map_to_main_and_subcategory(
+                    normalized_category,
+                    transaction.get("normalized_description"),
+                    transaction.get("transaction_type"),
+                )
+
                 cursor.execute(
                     """
                     INSERT INTO transactions (
@@ -26,6 +53,9 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
                         direction,
                         transaction_type,
                         category,
+                        main_category,
+                        subcategory,
+                        display_description,
                         category_source,
                         category_reviewed,
                         source_name,
@@ -37,7 +67,7 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
                         installment_total,
                         transaction_hash
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         import_id,
@@ -49,7 +79,10 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
                         transaction["absolute_amount"],
                         transaction["direction"],
                         transaction["transaction_type"],
-                        transaction["category"],
+                        normalized_category,
+                        main_category,
+                        subcategory,
+                        transaction.get("display_description") or transaction["raw_description"],
                         transaction.get("category_source", "rule"),
                         transaction.get("category_reviewed", 0),
                         transaction["source_name"],
@@ -201,36 +234,18 @@ def get_available_months():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT DISTINCT substr(transaction_date, 1, 7) as month
         FROM transactions
         ORDER BY month DESC
-    """)
+        """
+    )
 
     months = [row[0] for row in cursor.fetchall()]
     conn.close()
 
     return months
-
-def format_category_name(category: str) -> str:
-    cleaned = " ".join(category.strip().split())
-
-    if not cleaned:
-        return ""
-
-    parts = cleaned.split("/")
-
-    formatted_parts = []
-    for part in parts:
-        normalized_part = part.strip()
-        if not normalized_part:
-            continue
-
-        words = normalized_part.split()
-        formatted_words = [word[:1].upper() + word[1:].lower() for word in words]
-        formatted_parts.append(" ".join(formatted_words))
-
-    return "/".join(formatted_parts)
 
 
 def get_available_categories() -> list[str]:
@@ -247,13 +262,21 @@ def get_available_categories() -> list[str]:
             """
         )
 
-        return [row["category"] for row in cursor.fetchall()]
+        raw_categories = [row["category"] for row in cursor.fetchall()]
+
+    normalized_categories = {
+        normalize_category_name(category)
+        for category in raw_categories
+        if normalize_category_name(category)
+    }
+
+    return sorted(normalized_categories)
 
 
 def update_transaction_category(transaction_id: int, category: str) -> dict:
-    formatted_category = format_category_name(category)
+    normalized_category = normalize_category_name(category)
 
-    if not formatted_category:
+    if not normalized_category:
         return {
             "success": False,
             "message": "Category cannot be empty",
@@ -270,7 +293,7 @@ def update_transaction_category(transaction_id: int, category: str) -> dict:
                 category_reviewed = ?
             WHERE id = ?
             """,
-            (formatted_category, "manual", 1, transaction_id),
+            (normalized_category, "manual", 1, transaction_id),
         )
 
         connection.commit()
@@ -285,7 +308,7 @@ def update_transaction_category(transaction_id: int, category: str) -> dict:
         "success": True,
         "message": "Category updated successfully",
         "transaction_id": transaction_id,
-        "category": formatted_category,
+        "category": normalized_category,
         "category_source": "manual",
         "category_reviewed": 1,
     }

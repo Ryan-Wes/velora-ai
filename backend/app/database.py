@@ -15,6 +15,28 @@ def get_connection() -> sqlite3.Connection:
     return connection
 
 
+def _get_existing_columns(cursor: sqlite3.Cursor, table_name: str) -> set[str]:
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    rows = cursor.fetchall()
+    return {row["name"] for row in rows}
+
+
+def _ensure_transactions_columns(cursor: sqlite3.Cursor) -> None:
+    existing_columns = _get_existing_columns(cursor, "transactions")
+
+    columns_to_add = {
+        "main_category": "TEXT",
+        "subcategory": "TEXT",
+        "display_description": "TEXT",
+    }
+
+    for column_name, column_definition in columns_to_add.items():
+        if column_name not in existing_columns:
+            cursor.execute(
+                f"ALTER TABLE transactions ADD COLUMN {column_name} {column_definition}"
+            )
+
+
 def create_tables() -> None:
     with get_connection() as connection:
         cursor = connection.cursor()
@@ -53,6 +75,9 @@ def create_tables() -> None:
                 direction TEXT NOT NULL,
                 transaction_type TEXT NOT NULL,
                 category TEXT,
+                main_category TEXT,
+                subcategory TEXT,
+                display_description TEXT,
                 category_source TEXT NOT NULL DEFAULT 'rule',
                 category_reviewed INTEGER NOT NULL DEFAULT 0,
                 source_name TEXT NOT NULL,
@@ -71,5 +96,7 @@ def create_tables() -> None:
             )
             """
         )
+
+        _ensure_transactions_columns(cursor)
 
         connection.commit()
