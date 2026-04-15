@@ -18,6 +18,19 @@ const DEFAULT_CATEGORY_OPTIONS = [
   'outros',
 ]
 
+const SUBCATEGORY_MAP = {
+  alimentacao: ['mercado', 'restaurante', 'delivery', 'padaria'],
+  moradia: ['aluguel', 'contas', 'internet', 'manutencao'],
+  transporte: ['uber', 'taxi', 'onibus', 'metro'],
+  carro: ['combustivel', 'manutencao', 'seguro'],
+  saude: ['farmacia', 'consulta', 'exame'],
+  vestuario: ['roupas', 'calcados'],
+  lazer: ['cinema', 'games', 'viagem'],
+  assinaturas: ['streaming', 'software'],
+  educacao: ['faculdade', 'curso'],
+  outros: [],
+}
+
 function formatCategoryLabel(category) {
   if (!category) return ''
 
@@ -92,6 +105,9 @@ function TransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState('')
   const [customCategory, setCustomCategory] = useState('')
+  const [userNote, setUserNote] = useState('')
+  const [mainCategory, setMainCategory] = useState('')
+  const [subcategory, setSubcategory] = useState('')
 
   const transactionTypeLabels = {
     purchase: 'Compra Cartão',
@@ -338,18 +354,33 @@ function TransactionsPage() {
     setSelectedTransaction(transaction)
     setSelectedCategory(transaction.category || 'outros')
     setCustomCategory('')
+    setUserNote(transaction.user_note || '')
+    setMainCategory(
+      transaction.main_category && transaction.main_category !== 'outros'
+        ? transaction.main_category
+        : transaction.category || 'outros'
+    )
+    setSubcategory(transaction.subcategory || '')
   }
 
   function closeEditModal() {
     setSelectedTransaction(null)
     setSelectedCategory('')
     setCustomCategory('')
+    setUserNote('')
   }
 
   useEffect(() => {
     function handleKeyDown(event) {
-      if (event.key === 'Escape' && selectedTransaction) {
+      if (!selectedTransaction) return
+
+      if (event.key === 'Escape') {
         closeEditModal()
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        saveCategory()
       }
     }
 
@@ -358,7 +389,7 @@ function TransactionsPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [selectedTransaction])
+  }, [selectedTransaction, mainCategory, subcategory, userNote, selectedCategory, customCategory])
 
   async function saveCategory() {
     const finalCategory =
@@ -384,6 +415,10 @@ function TransactionsPage() {
           },
           body: JSON.stringify({
             category: finalCategory,
+            main_category: mainCategory,
+            subcategory: subcategory || null,
+            display_description: selectedTransaction.display_description,
+            user_note: userNote,
           }),
         }
       )
@@ -404,8 +439,13 @@ function TransactionsPage() {
             ? {
               ...transaction,
               category: updatedData.category,
-              category_source: 'manual',
-              category_reviewed: 1,
+              main_category: updatedData.main_category,
+              subcategory: updatedData.subcategory,
+              display_description: updatedData.display_description,
+              user_note: updatedData.user_note,
+              category_source: updatedData.category_source,
+              category_source: updatedData.category_source,
+              category_reviewed: updatedData.category_reviewed,
             }
             : transaction
         )
@@ -637,63 +677,128 @@ function TransactionsPage() {
           <table>
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Descrição</th>
+                <th className="cell-center">Data</th>
+                <th className="cell-left">Descrição</th>
                 <th>Tipo</th>
-                <th>Origem</th>
-                <th>Categoria</th>
-                <th>Definição</th>
-                <th>Valor</th>
+                <th className="cell-center">Origem</th>
+                <th className="cell-center">Categoria</th>
+                <th className="cell-center">Subcategoria</th>
+                <th className="cell-center">Definição</th>
+                <th className="cell-left">Valor</th>
+                <th className="cell-center">Editar</th>
               </tr>
             </thead>
 
             <tbody>
-              {transactions.map((transaction) => (
-                <tr
-                  key={transaction.id}
-                  className={`${transaction.category === 'outros' ? 'row-needs-category' : ''
-                    } ${Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''
-                    }`}
-                >
-                  <td>{formatDate(transaction.transaction_date)}</td>
-                  <td>{transaction.raw_description}</td>
-                  <td>
-                    {transactionTypeLabels[transaction.transaction_type] ||
-                      transaction.transaction_type}
-                  </td>
-                  <td>
-                    {sourceLabels[transaction.source_type] || transaction.source_type}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(transaction)}
-                      className={`category-badge category-trigger ${transaction.category === 'outros' ? 'category-outros' : ''
-                        }`}
-                    >
-                      <span>
-                        {formatCategoryLabel(transaction.category)}
-                        {transaction.category === 'outros' && ' • revisar'}
+              {transactions.map((transaction) => {
+                const isManual = transaction.category_source === 'manual'
+
+                const hasMissingMainCategory =
+                  !transaction.main_category || transaction.main_category.trim() === ''
+
+                const hasMissingSubcategory =
+                  !transaction.subcategory || transaction.subcategory.trim() === ''
+
+                const hasAutomaticOthers =
+                  !isManual &&
+                  (
+                    transaction.main_category === 'outros' ||
+                    transaction.subcategory === 'outros'
+                  )
+
+                const shouldHighlightRow =
+                  !isManual &&
+                  (
+                    hasMissingMainCategory ||
+                    hasMissingSubcategory ||
+                    hasAutomaticOthers
+                  )
+
+                return (
+                  <tr
+                    key={transaction.id}
+                    className={`${shouldHighlightRow ? 'row-needs-category' : ''}
+            ${Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''}`}
+                  >
+                    <td className="cell-center">
+                      {formatDate(transaction.transaction_date)}
+                    </td>
+
+                    <td className="cell-left">
+                      <span
+                        className={`transaction-description ${transaction.user_note ? 'has-note' : ''}`}
+                        data-note={transaction.user_note || ''}
+                      >
+                        {transaction.display_description || transaction.raw_description}
                       </span>
-                      <span className="category-chevron">˅</span>
-                    </button>
-                  </td>
-                  <td>
-                    <span
-                      className={`source-badge ${transaction.category_source === 'manual'
-                        ? 'source-manual'
-                        : 'source-auto'
-                        }`}
-                    >
-                      {transaction.category_source === 'manual' ? 'Manual' : 'Auto'}
-                    </span>
-                  </td>
-                  <td className={transaction.direction === 'in' ? 'green' : 'red'}>
-                    {transaction.direction === 'in' ? '+' : '-'}{' '}
-                    {formatCurrency(transaction.absolute_amount)}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+
+                    <td>
+                      {transactionTypeLabels[transaction.transaction_type] ||
+                        transaction.transaction_type}
+                    </td>
+
+                    <td className="cell-center">
+                      {sourceLabels[transaction.source_type] || transaction.source_type}
+                    </td>
+
+                    <td className="cell-center">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(transaction)}
+                        className={`category-badge category-trigger category-${transaction.main_category || 'outros'
+                          }`}
+                      >
+                        <span>
+                          {formatCategoryLabel(
+                            transaction.main_category || transaction.category
+                          )}
+                        </span>
+                        <span className="category-chevron">˅</span>
+                      </button>
+                    </td>
+
+                    <td className="cell-center">
+                      <span
+                        className={`category-badge category-${transaction.main_category || 'outros'
+                          }`}
+                      >
+                        {transaction.subcategory
+                          ? formatCategoryLabel(transaction.subcategory)
+                          : '-'}
+                      </span>
+                    </td>
+
+                    <td className="cell-center">
+                      <span
+                        className={`source-badge ${transaction.category_source === 'manual'
+                          ? 'source-manual'
+                          : 'source-auto'
+                          }`}
+                      >
+                        {transaction.category_source === 'manual' ? 'Manual' : 'Auto'}
+                      </span>
+                    </td>
+
+                    <td className={transaction.direction === 'in' ? 'green cell-left' : 'red cell-left'}>
+                      {transaction.direction === 'in' ? '+' : '-'}{' '}
+                      {formatCurrency(transaction.absolute_amount)}
+                    </td>
+
+                    <td className="cell-center">
+                      <button
+                        type="button"
+                        className="edit-icon-button"
+                        onClick={() => openEditModal(transaction)}
+                        aria-label="Editar transação"
+                        title="Editar transação"
+                      >
+                        ✏️
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
 
@@ -751,8 +856,63 @@ function TransactionsPage() {
                 {selectedTransaction.category_source === 'manual' ? 'Manual' : 'Automática'}
               </p>
 
+              <label className="modal-label">
+                Categoria principal
+              </label>
+
+              <select
+                className="modal-select"
+                value={mainCategory}
+                onChange={(e) => {
+                  const nextMainCategory = e.target.value
+                  setMainCategory(nextMainCategory)
+                  setSubcategory('')
+                }}
+              >
+                <option value="alimentacao">Alimentação</option>
+                <option value="moradia">Moradia</option>
+                <option value="transporte">Transporte</option>
+                <option value="carro">Carro</option>
+                <option value="saude">Saúde</option>
+                <option value="vestuario">Vestuário</option>
+                <option value="lazer">Lazer</option>
+                <option value="assinaturas">Assinaturas</option>
+                <option value="educacao">Educação</option>
+                <option value="outros">Outros</option>
+              </select>
+
+              <label className="modal-label">
+                Subcategoria
+              </label>
+
+              <select
+                className="modal-select"
+                value={subcategory}
+                onChange={(e) => setSubcategory(e.target.value)}
+              >
+                <option value="">Nenhuma</option>
+
+                {(SUBCATEGORY_MAP[mainCategory] || []).map((sub) => (
+                  <option key={sub} value={sub}>
+                    {formatCategoryLabel(sub)}
+                  </option>
+                ))}
+              </select>
+
+              <label className="modal-label">
+                Observação
+              </label>
+
+              <input
+                type="text"
+                className="modal-input"
+                value={userNote}
+                onChange={(e) => setUserNote(e.target.value)}
+                placeholder="Ex: Conserto do terminal elétrico na oficina do Grala"
+              />
+
               <label htmlFor="category-select" className="modal-label">
-                Nova categoria
+                Categoria legada
               </label>
 
               <select
@@ -778,6 +938,8 @@ function TransactionsPage() {
                 />
               )}
             </div>
+
+
 
             <div className="modal-actions">
               <button

@@ -634,3 +634,118 @@ button:disabled {
     width: 100%;
   }
 }
+
+.category-alimentacao {
+  background: #2e1a1a;
+  color: #fca5a5;
+}
+
+.category-transporte {
+  background: #0f2a3a;
+  color: #7dd3fc;
+}
+
+.category-carro {
+  background: #3a320f;
+  color: #fde047;
+}
+
+.category-saude {
+  background: #0f3a2a;
+  color: #6ee7b7;
+}
+
+.category-moradia {
+  background: #2a1f3a;
+  color: #c4b5fd;
+}
+
+.category-vestuario {
+  background: #3a0f2f;
+  color: #f9a8d4;
+}
+
+.category-lazer {
+  background: #103a36;
+  color: #5eead4;
+}
+
+.category-assinaturas {
+  background: #1a1f3a;
+  color: #a5b4fc;
+}
+
+.category-educacao {
+  background: #2a2a1a;
+  color: #fde68a;
+}
+
+.category-outros {
+  background: #1f1f2e;
+  color: #d4d4d8;
+}
+
+.missing-subcategory {
+  border: 1px dashed rgba(250, 204, 21, 0.45);
+  color: #fde68a;
+}
+
+.transaction-description {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  cursor: default;
+}
+
+.transaction-description.has-note {
+  text-decoration: none;
+}
+.transaction-description.has-note::after {
+  content: attr(data-note);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  max-width: 320px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: normal;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.transaction-description.has-note::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  bottom: calc(100% + 4px);
+  width: 10px;
+  height: 10px;
+  background: #111827;
+  border-left: 1px solid rgba(167, 139, 250, 0.28);
+  border-top: 1px solid rgba(167, 139, 250, 0.28);
+  transform: rotate(45deg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+  z-index: 29;
+  pointer-events: none;
+}
+
+.transaction-description.has-note:hover::after,
+.transaction-description.has-note:hover::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}

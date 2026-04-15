@@ -23,6 +23,48 @@ def normalize_category_name(category: str | None) -> str:
     return normalized.strip()
 
 
+def normalize_display_description(
+    raw_description: str | None,
+    display_description: str | None = None,
+    transaction_type: str | None = None,
+) -> str:
+    original_text = (display_description or raw_description or "").strip()
+
+    if not original_text:
+        return ""
+
+    text = re.sub(r"\s+", " ", original_text).strip()
+
+    # Só mexe em descrições realmente longas
+    if len(text) <= 70:
+        return text
+
+    # Transferências / Pix muito longos:
+    # remove CPF/CNPJ e trechos extras depois do nome
+    if transaction_type in {"pix_out", "pix_in", "transfer_out", "transfer_in"}:
+        shortened = re.sub(r"\s+\d{11,14}.*$", "", text).strip()
+        shortened = re.sub(r"\s+-\s+.*$", "", shortened).strip()
+
+        if shortened and len(shortened) < len(text):
+            return shortened
+
+        return text
+
+    # Boleto muito longo:
+    # mantém mais legível, mas sem mutilar compras normais
+    if text.lower().startswith("pagamento de boleto"):
+        shortened = re.sub(
+            r"(?i)^pagamento de boleto efetuado\s+",
+            "Boleto - ",
+            text,
+        ).strip()
+
+        return shortened if shortened else text
+
+    # Fora desses casos, mantém exatamente como veio
+    return text
+
+
 def save_transactions(import_id: int, transactions: list[dict]) -> dict:
     inserted_count = 0
     skipped_count = 0
@@ -168,7 +210,18 @@ def list_transactions(
         cursor.execute(data_query, data_params)
         rows = cursor.fetchall()
 
-        items = [dict(row) for row in rows]
+        items = []
+
+        for row in rows:
+            item = dict(row)
+
+            item["display_description"] = normalize_display_description(
+                raw_description=item.get("raw_description"),
+                display_description=item.get("display_description"),
+                transaction_type=item.get("transaction_type"),
+            )
+
+            items.append(item)
 
         return {
             "items": items,
@@ -273,29 +326,64 @@ def get_available_categories() -> list[str]:
     return sorted(normalized_categories)
 
 
-def update_transaction_category(transaction_id: int, category: str) -> dict:
-    normalized_category = normalize_category_name(category)
+def update_transaction_category(
+    transaction_id: int,
+    category: str | None = None,
+    main_category: str | None = None,
+    subcategory: str | None = None,
+    display_description: str | None = None,
+    user_note: str | None = None,
+) -> dict:
 
-    if not normalized_category:
-        return {
-            "success": False,
-            "message": "Category cannot be empty",
-        }
+    normalized_category = normalize_category_name(category) if category else None
 
     with get_connection() as connection:
         cursor = connection.cursor()
 
-        cursor.execute(
-            """
-            UPDATE transactions
-            SET category = ?,
-                category_source = ?,
-                category_reviewed = ?
-            WHERE id = ?
-            """,
-            (normalized_category, "manual", 1, transaction_id),
-        )
+        fields = []
+        values = []
 
+        if normalized_category:
+            fields.append("category = ?")
+            values.append(normalized_category)
+
+        if main_category is not None:
+            fields.append("main_category = ?")
+            values.append(main_category)
+
+        if subcategory is not None:
+            fields.append("subcategory = ?")
+            values.append(subcategory)
+
+        if display_description is not None:
+            fields.append("display_description = ?")
+            values.append(display_description)
+
+        if user_note is not None:
+            fields.append("user_note = ?")
+            values.append(user_note)
+
+        fields.append("category_source = ?")
+        values.append("manual")
+
+        fields.append("category_reviewed = ?")
+        values.append(1)
+
+        if not fields:
+            return {
+                "success": False,
+                "message": "No fields to update",
+            }
+
+        query = f"""
+            UPDATE transactions
+            SET {', '.join(fields)}
+            WHERE id = ?
+        """
+
+        values.append(transaction_id)
+
+        cursor.execute(query, values)
         connection.commit()
 
         if cursor.rowcount == 0:
@@ -306,9 +394,13 @@ def update_transaction_category(transaction_id: int, category: str) -> dict:
 
     return {
         "success": True,
-        "message": "Category updated successfully",
+        "message": "Transaction updated successfully",
         "transaction_id": transaction_id,
         "category": normalized_category,
+        "main_category": main_category,
+        "subcategory": subcategory,
+        "display_description": display_description,
+        "user_note": user_note,
         "category_source": "manual",
         "category_reviewed": 1,
     }

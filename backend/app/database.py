@@ -28,6 +28,7 @@ def _ensure_transactions_columns(cursor: sqlite3.Cursor) -> None:
         "main_category": "TEXT",
         "subcategory": "TEXT",
         "display_description": "TEXT",
+        "user_note": "TEXT",
     }
 
     for column_name, column_definition in columns_to_add.items():
@@ -78,6 +79,7 @@ def create_tables() -> None:
                 main_category TEXT,
                 subcategory TEXT,
                 display_description TEXT,
+                user_note TEXT,
                 category_source TEXT NOT NULL DEFAULT 'rule',
                 category_reviewed INTEGER NOT NULL DEFAULT 0,
                 source_name TEXT NOT NULL,

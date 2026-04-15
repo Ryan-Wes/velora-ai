@@ -25,6 +25,7 @@ def get_transactions(
         offset=offset,
     )
 
+
 @router.get("/transactions/months")
 def get_available_months():
     months = transaction_service.get_available_months()
@@ -40,9 +41,13 @@ def get_available_categories():
 @router.patch("/transactions/{transaction_id}/category")
 def update_transaction_category(
     transaction_id: int,
-    category: str = Body(..., embed=True),
+    payload: dict = Body(...),
 ):
     return transaction_service.update_transaction_category(
         transaction_id=transaction_id,
-        category=category,
+        category=payload.get("category"),
+        main_category=payload.get("main_category"),
+        subcategory=payload.get("subcategory"),
+        display_description=payload.get("display_description"),
+        user_note=payload.get("user_note"),
     )
