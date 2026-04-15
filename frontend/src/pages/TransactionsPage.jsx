@@ -28,7 +28,8 @@ const SUBCATEGORY_MAP = {
   lazer: ['cinema', 'games', 'viagem'],
   assinaturas: ['streaming', 'software'],
   educacao: ['faculdade', 'curso'],
-  outros: [],
+  outros: ['outros'],
+  nao_identificado: ['nao_identificado'],
 }
 
 function formatCategoryLabel(category) {
@@ -49,6 +50,7 @@ function formatCategoryLabel(category) {
     tecnologia: 'Tecnologia',
     farmacia: 'Farmácia',
     mecanica: 'Mecânica',
+    nao_identificado: 'Não identif.',
   }
 
   return category
@@ -511,8 +513,11 @@ function TransactionsPage() {
           <h1>Transações</h1>
           <p>Visualize, filtre, importe arquivos e revise categorias</p>
           <div style={{ marginTop: '16px' }}>
-            <Link to="/" className="filter-button">
-              Voltar para dashboard
+            <Link
+              to="/"
+              style={{ color: '#a78bfa', textDecoration: 'none' }}
+            >
+              ← Voltar para dashboard
             </Link>
           </div>
         </header>
@@ -691,27 +696,32 @@ function TransactionsPage() {
 
             <tbody>
               {transactions.map((transaction) => {
-                const isManual = transaction.category_source === 'manual'
-
                 const hasMissingMainCategory =
                   !transaction.main_category || transaction.main_category.trim() === ''
 
                 const hasMissingSubcategory =
                   !transaction.subcategory || transaction.subcategory.trim() === ''
 
-                const hasAutomaticOthers =
-                  !isManual &&
-                  (
-                    transaction.main_category === 'outros' ||
-                    transaction.subcategory === 'outros'
-                  )
+                const isResolvedAsOthers =
+                  transaction.main_category === 'outros' &&
+                  transaction.subcategory === 'outros'
+
+                const isResolvedAsNotIdentified =
+                  transaction.main_category === 'nao_identificado' &&
+                  transaction.subcategory === 'nao_identificado'
 
                 const shouldHighlightRow =
-                  !isManual &&
+                  hasMissingMainCategory ||
+                  hasMissingSubcategory ||
                   (
-                    hasMissingMainCategory ||
-                    hasMissingSubcategory ||
-                    hasAutomaticOthers
+                    !isResolvedAsOthers &&
+                    !isResolvedAsNotIdentified &&
+                    (
+                      transaction.main_category === 'outros' ||
+                      transaction.subcategory === 'outros' ||
+                      transaction.main_category === 'nao_identificado' ||
+                      transaction.subcategory === 'nao_identificado'
+                    )
                   )
 
                 return (
@@ -879,6 +889,7 @@ function TransactionsPage() {
                 <option value="assinaturas">Assinaturas</option>
                 <option value="educacao">Educação</option>
                 <option value="outros">Outros</option>
+                <option value="nao_identificado">Não identificado</option>
               </select>
 
               <label className="modal-label">
@@ -908,7 +919,7 @@ function TransactionsPage() {
                 className="modal-input"
                 value={userNote}
                 onChange={(e) => setUserNote(e.target.value)}
-                placeholder="Ex: Conserto do terminal elétrico na oficina do Grala"
+                placeholder="Ex: Pix recebido por fulano dia tal, ou gasto recorrente todo mês, etc"
               />
 
               <label htmlFor="category-select" className="modal-label">

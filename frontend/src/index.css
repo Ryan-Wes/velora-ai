@@ -304,17 +304,13 @@ thead th {
 th,
 td {
   padding: 12px;
-  text-align: left;
+  text-align: center;
 }
 
-td:nth-child(1),
-td:nth-child(3),
-td:nth-child(5) {
+td:nth-child(2),
+td:nth-child(8){
   white-space: nowrap;
-}
-
-td:nth-child(5) {
-  text-align: right;
+  text-align: left;
 }
 
 thead {
@@ -449,6 +445,11 @@ button:disabled {
 .category-outros {
   background: #3f1d1d;
   color: #fca5a5;
+}
+
+.category-nao_identificado {
+  background: #2f1720;
+  color: #f9a8d4;
 }
 
 .source-auto {

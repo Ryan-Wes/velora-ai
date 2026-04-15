@@ -334,7 +334,6 @@ def update_transaction_category(
     display_description: str | None = None,
     user_note: str | None = None,
 ) -> dict:
-
     normalized_category = normalize_category_name(category) if category else None
 
     with get_connection() as connection:
@@ -342,6 +341,11 @@ def update_transaction_category(
 
         fields = []
         values = []
+
+        category_fields_changed = any(
+            value is not None
+            for value in [category, main_category, subcategory]
+        )
 
         if normalized_category:
             fields.append("category = ?")
@@ -363,11 +367,12 @@ def update_transaction_category(
             fields.append("user_note = ?")
             values.append(user_note)
 
-        fields.append("category_source = ?")
-        values.append("manual")
+        if category_fields_changed:
+            fields.append("category_source = ?")
+            values.append("manual")
 
-        fields.append("category_reviewed = ?")
-        values.append(1)
+            fields.append("category_reviewed = ?")
+            values.append(1)
 
         if not fields:
             return {
@@ -392,15 +397,32 @@ def update_transaction_category(
                 "message": "Transaction not found",
             }
 
+        cursor.execute(
+            """
+            SELECT
+                category,
+                main_category,
+                subcategory,
+                display_description,
+                user_note,
+                category_source,
+                category_reviewed
+            FROM transactions
+            WHERE id = ?
+            """,
+            (transaction_id,),
+        )
+        updated_row = dict(cursor.fetchone())
+
     return {
         "success": True,
         "message": "Transaction updated successfully",
         "transaction_id": transaction_id,
-        "category": normalized_category,
-        "main_category": main_category,
-        "subcategory": subcategory,
-        "display_description": display_description,
-        "user_note": user_note,
-        "category_source": "manual",
-        "category_reviewed": 1,
+        "category": updated_row["category"],
+        "main_category": updated_row["main_category"],
+        "subcategory": updated_row["subcategory"],
+        "display_description": updated_row["display_description"],
+        "user_note": updated_row["user_note"],
+        "category_source": updated_row["category_source"],
+        "category_reviewed": updated_row["category_reviewed"],
     }
