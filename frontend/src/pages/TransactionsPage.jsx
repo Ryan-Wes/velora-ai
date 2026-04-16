@@ -1,36 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../index.css'
+import { getCategoryDisplayColor } from '../utils/categoryStyle'
 
-const DEFAULT_CATEGORY_OPTIONS = [
-  'alimentacao',
-  'mercado',
-  'compras',
-  'transporte',
-  'carro',
-  'roupas',
-  'saude',
-  'casa',
-  'assinaturas',
-  'lazer',
-  'investimentos',
-  'movimentacoes',
-  'outros',
-]
 
-const SUBCATEGORY_MAP = {
-  alimentacao: ['mercado', 'restaurante', 'delivery', 'padaria'],
-  moradia: ['aluguel', 'contas', 'internet', 'manutencao'],
-  transporte: ['uber', 'taxi', 'onibus', 'metro'],
-  carro: ['combustivel', 'manutencao', 'seguro'],
-  saude: ['farmacia', 'consulta', 'exame'],
-  vestuario: ['roupas', 'calcados'],
-  lazer: ['cinema', 'games', 'viagem'],
-  assinaturas: ['streaming', 'software'],
-  educacao: ['faculdade', 'curso'],
-  outros: ['outros'],
+const FALLBACK_CATEGORY_OPTIONS = ['nao_identificado']
+
+const FALLBACK_SUBCATEGORY_MAP = {
   nao_identificado: ['nao_identificado'],
 }
+
 
 function formatCategoryLabel(category) {
   if (!category) return ''
@@ -82,7 +61,7 @@ function TransactionsPage() {
   const [total, setTotal] = useState(0)
   const [savingId, setSavingId] = useState(null)
   const [categoryOptions, setCategoryOptions] = useState([
-    ...DEFAULT_CATEGORY_OPTIONS,
+    ...FALLBACK_CATEGORY_OPTIONS,
     '__custom__',
   ])
 
@@ -110,6 +89,22 @@ function TransactionsPage() {
   const [userNote, setUserNote] = useState('')
   const [mainCategory, setMainCategory] = useState('')
   const [subcategory, setSubcategory] = useState('')
+
+  const [categorySchema, setCategorySchema] = useState([])
+  const [subcategoryMap, setSubcategoryMap] = useState(FALLBACK_SUBCATEGORY_MAP)
+
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState([])
+  const [isBulkEditMode, setIsBulkEditMode] = useState(false)
+
+  const schemaColorMap = categorySchema.reduce((acc, item) => {
+    acc[item.key] = item.color
+    return acc
+  }, {})
+
+  const getCategoryColor = (category) => {
+    if (!category) return '#71717a'
+    return schemaColorMap[category] || '#71717a'
+  }
 
   const transactionTypeLabels = {
     purchase: 'Compra Cartão',
@@ -152,40 +147,45 @@ function TransactionsPage() {
     fetchMonths()
   }, [])
 
+
+
   useEffect(() => {
-    async function fetchCategories() {
+    async function fetchCategorySchema() {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/transactions/categories')
+        const response = await fetch('http://127.0.0.1:8000/api/categories/schema')
 
         if (!response.ok) {
-          throw new Error('Erro ao buscar categorias')
+          throw new Error('Erro ao buscar schema de categorias')
         }
 
         const data = await response.json()
-        const customCategories = data.categories || []
+        const categories = data.categories || []
 
-        const mergedCategories = [
-          ...DEFAULT_CATEGORY_OPTIONS,
-          ...customCategories.filter(
-            (category) => !DEFAULT_CATEGORY_OPTIONS.includes(category)
-          ),
-        ]
+        setCategorySchema(categories)
 
-        const sortedCategories = mergedCategories.sort((a, b) =>
-          formatCategoryLabel(a).localeCompare(formatCategoryLabel(b), 'pt-BR', {
-            sensitivity: 'base',
-          })
+        const nextCategoryOptions = categories.map((item) => item.key)
+
+        const nextSubcategoryMap = categories.reduce((accumulator, item) => {
+          accumulator[item.key] = (item.subcategories || []).map(
+            (subcategory) => subcategory.key
+          )
+          return accumulator
+        }, {})
+
+        setCategoryOptions([...nextCategoryOptions, '__custom__'])
+        setSubcategoryMap(
+          Object.keys(nextSubcategoryMap).length
+            ? nextSubcategoryMap
+            : FALLBACK_SUBCATEGORY_MAP
         )
-
-        setCategoryOptions([...sortedCategories, '__custom__'])
-
-        setCategoryOptions(mergedCategories)
       } catch (err) {
         console.error(err)
+        setCategoryOptions([...FALLBACK_CATEGORY_OPTIONS, '__custom__'])
+        setSubcategoryMap(FALLBACK_SUBCATEGORY_MAP)
       }
     }
 
-    fetchCategories()
+    fetchCategorySchema()
   }, [])
 
   useEffect(() => {
@@ -285,6 +285,52 @@ function TransactionsPage() {
     }
   }
 
+  function toggleTransactionSelection(transactionId) {
+    setSelectedTransactionIds((prev) =>
+      prev.includes(transactionId)
+        ? prev.filter((id) => id !== transactionId)
+        : [...prev, transactionId]
+    )
+  }
+
+  function toggleSelectAllCurrentPage() {
+    const currentPageIds = transactions.map((transaction) => transaction.id)
+
+    const allSelected = currentPageIds.every((id) =>
+      selectedTransactionIds.includes(id)
+    )
+
+    if (allSelected) {
+      setSelectedTransactionIds((prev) =>
+        prev.filter((id) => !currentPageIds.includes(id))
+      )
+      return
+    }
+
+    setSelectedTransactionIds((prev) => [
+      ...new Set([...prev, ...currentPageIds]),
+    ])
+  }
+
+  function openBulkEditModal() {
+    setSelectedTransaction(null)
+    setSelectedCategory('')
+    setCustomCategory('')
+    setUserNote('')
+    setMainCategory('')
+    setSubcategory('')
+    setIsBulkEditMode(true)
+  }
+
+  function closeBulkEditModal() {
+    setIsBulkEditMode(false)
+    setSelectedCategory('')
+    setCustomCategory('')
+    setUserNote('')
+    setMainCategory('')
+    setSubcategory('')
+  }
+
   async function handleResetDatabase() {
     try {
       setResetting(true)
@@ -353,15 +399,16 @@ function TransactionsPage() {
   }
 
   function openEditModal(transaction) {
+    const resolvedMainCategory =
+      transaction.main_category ||
+      transaction.category ||
+      'nao_identificado'
+
     setSelectedTransaction(transaction)
-    setSelectedCategory(transaction.category || 'outros')
+    setSelectedCategory(transaction.category || resolvedMainCategory)
     setCustomCategory('')
     setUserNote(transaction.user_note || '')
-    setMainCategory(
-      transaction.main_category && transaction.main_category !== 'outros'
-        ? transaction.main_category
-        : transaction.category || 'outros'
-    )
+    setMainCategory(resolvedMainCategory)
     setSubcategory(transaction.subcategory || '')
   }
 
@@ -477,6 +524,51 @@ function TransactionsPage() {
     }
   }
 
+  async function saveBulkCategory() {
+    if (!selectedTransactionIds.length) {
+      setError('Selecione pelo menos uma transação')
+      return
+    }
+
+    try {
+      setError('')
+
+      const response = await fetch(
+        'http://127.0.0.1:8000/api/transactions/bulk-category',
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transaction_ids: selectedTransactionIds,
+            main_category: mainCategory || null,
+            subcategory: subcategory || null,
+            user_note: userNote || null,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar transações em lote')
+      }
+
+      const updatedData = await response.json()
+
+      if (!updatedData.success) {
+        throw new Error(
+          updatedData.message || 'Erro ao atualizar transações em lote'
+        )
+      }
+
+      await fetchTransactions()
+      setSelectedTransactionIds([])
+      closeBulkEditModal()
+    } catch (err) {
+      setError(err.message || 'Erro ao salvar edição em lote')
+    }
+  }
+
   const currentPage = useMemo(() => {
     return Math.floor(pagination.offset / pagination.limit) + 1
   }, [pagination])
@@ -528,6 +620,14 @@ function TransactionsPage() {
             onClick={() => setShowUpload(!showUpload)}
           >
             {showUpload ? 'Ocultar importação' : 'Importar arquivos'}
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={openBulkEditModal}
+            disabled={!selectedTransactionIds.length}
+          >
+            Editar selecionadas ({selectedTransactionIds.length})
           </button>
         </div>
 
@@ -682,6 +782,25 @@ function TransactionsPage() {
           <table>
             <thead>
               <tr>
+                <th className="cell-center">
+                  <input
+                    type="checkbox"
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate =
+                          selectedTransactionIds.length > 0 &&
+                          selectedTransactionIds.length < transactions.length
+                      }
+                    }}
+                    checked={
+                      transactions.length > 0 &&
+                      transactions.every((transaction) =>
+                        selectedTransactionIds.includes(transaction.id)
+                      )
+                    }
+                    onChange={toggleSelectAllCurrentPage}
+                  />
+                </th>
                 <th className="cell-center">Data</th>
                 <th className="cell-left">Descrição</th>
                 <th>Tipo</th>
@@ -731,6 +850,14 @@ function TransactionsPage() {
             ${Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''}`}
                   >
                     <td className="cell-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedTransactionIds.includes(transaction.id)}
+                        onChange={() => toggleTransactionSelection(transaction.id)}
+                      />
+                    </td>
+
+                    <td className="cell-center">
                       {formatDate(transaction.transaction_date)}
                     </td>
 
@@ -756,8 +883,15 @@ function TransactionsPage() {
                       <button
                         type="button"
                         onClick={() => openEditModal(transaction)}
-                        className={`category-badge category-trigger category-${transaction.main_category || 'outros'
-                          }`}
+                        className="category-badge category-trigger"
+                        style={{
+                          backgroundColor: getCategoryDisplayColor(
+                            getCategoryColor(transaction.main_category),
+                            0.15
+                          ),
+                          color: getCategoryColor(transaction.main_category),
+                          fontWeight: 600,
+                        }}
                       >
                         <span>
                           {formatCategoryLabel(
@@ -770,8 +904,15 @@ function TransactionsPage() {
 
                     <td className="cell-center">
                       <span
-                        className={`category-badge category-${transaction.main_category || 'outros'
-                          }`}
+                        className="category-badge"
+                        style={{
+                          backgroundColor: getCategoryDisplayColor(
+                            getCategoryColor(transaction.main_category),
+                            0.15
+                          ),
+                          color: getCategoryColor(transaction.main_category),
+                          fontWeight: 600,
+                        }}
                       >
                         {transaction.subcategory
                           ? formatCategoryLabel(transaction.subcategory)
@@ -846,7 +987,7 @@ function TransactionsPage() {
         </section>
       </div>
 
-      {selectedTransaction && (
+      {selectedTransaction && !isBulkEditMode && (
         <div className="modal-overlay" onClick={closeEditModal}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h2>Editar categoria</h2>
@@ -903,7 +1044,7 @@ function TransactionsPage() {
               >
                 <option value="">Nenhuma</option>
 
-                {(SUBCATEGORY_MAP[mainCategory] || []).map((sub) => (
+                {(subcategoryMap[mainCategory] || []).map((sub) => (
                   <option key={sub} value={sub}>
                     {formatCategoryLabel(sub)}
                   </option>
@@ -962,6 +1103,85 @@ function TransactionsPage() {
               </button>
 
               <button className="secondary-button" onClick={closeEditModal}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isBulkEditMode && (
+        <div className="modal-overlay" onClick={closeBulkEditModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Editar transações em lote</h2>
+
+            <div className="modal-content">
+              <p>
+                <strong>Selecionadas:</strong> {selectedTransactionIds.length}
+              </p>
+
+              <label className="modal-label">
+                Categoria principal
+              </label>
+
+              <select
+                className="modal-select"
+                value={mainCategory}
+                onChange={(e) => {
+                  const nextMainCategory = e.target.value
+                  setMainCategory(nextMainCategory)
+                  setSubcategory('')
+                }}
+              >
+                <option value="">Selecione</option>
+
+                {categorySchema.map((category) => (
+                  <option key={category.key} value={category.key}>
+                    {category.label}
+                  </option>
+                ))}
+              </select>
+
+              <label className="modal-label">
+                Subcategoria
+              </label>
+
+              <select
+                className="modal-select"
+                value={subcategory}
+                onChange={(e) => setSubcategory(e.target.value)}
+                disabled={!mainCategory}
+              >
+                <option value="">Nenhuma</option>
+
+                {(subcategoryMap[mainCategory] || []).map((sub) => (
+                  <option key={sub} value={sub}>
+                    {formatCategoryLabel(sub)}
+                  </option>
+                ))}
+              </select>
+
+              <label className="modal-label">
+                Observação
+              </label>
+
+              <input
+                type="text"
+                className="modal-input"
+                value={userNote}
+                onChange={(e) => setUserNote(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="filter-button"
+                onClick={saveBulkCategory}
+              >
+                Salvar em lote
+              </button>
+
+              <button className="secondary-button" onClick={closeBulkEditModal}>
                 Cancelar
               </button>
             </div>

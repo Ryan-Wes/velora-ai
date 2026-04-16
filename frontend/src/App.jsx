@@ -23,30 +23,16 @@ function App() {
   const [months, setMonths] = useState([])
   const [byCategory, setByCategory] = useState([])
   const [monthlyTrend, setMonthlyTrend] = useState([])
+  const [categorySchema, setCategorySchema] = useState([])
 
   const [filters, setFilters] = useState({
     month: '',
   })
 
-  const CATEGORY_COLORS = {
-    alimentacao: '#ef4444',
-    mercado: '#22c55e',
-    compras: '#f97316',
-    transporte: '#38bdf8',
-    carro: '#facc15',
-    roupas: '#ec4899',
-    saude: '#06b6d4',
-    casa: '#8b5cf6',
-    assinaturas: '#6366f1',
-    lazer: '#14b8a6',
-    investimentos: '#10b981',
-    movimentacoes: '#64a2fa',
-    outros: '#a78bfa',
-    aluguel: '#f59e0b',
-    telefone: '#0ea5e9',
-    internet: '#7c3aed',
-    'sem categoria': '#eeecec',
-  }
+  const schemaColorMap = categorySchema.reduce((accumulator, item) => {
+    accumulator[item.key] = item.color
+    return accumulator
+  }, {})
 
   const FALLBACK_COLORS = [
     '#a78bfa',
@@ -61,48 +47,34 @@ function App() {
     '#84cc16',
   ]
 
-  const formatCategory = (name) => {
-    const map = {
-      movimentacoes: 'Movimentações',
-      alimentacao: 'Alimentação',
-      outros: 'Outros',
-      roupas: 'Roupas',
-      carro: 'Carro',
-      mercado: 'Mercado',
-      compras: 'Compras',
-      transporte: 'Transporte',
-      saude: 'Saúde',
-      casa: 'Casa',
-      assinaturas: 'Assinaturas',
-      lazer: 'Lazer',
-      investimentos: 'Investimentos',
-      aluguel: 'Aluguel',
-      telefone: 'Telefone',
-      internet: 'Internet',
-    }
+    const formatCategory = (name) => {
+  if (!name) return ''
 
-    return map[name] || name
+  const schemaItem = categorySchema.find((item) => item.key === name)
+
+  // prioridade total pro backend
+  if (schemaItem?.label) {
+    return schemaItem.label
   }
+
+  // fallback mais bonito
+  return name
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 
   const getCategoryColor = (category) => {
-    if (!category) {
-      return '#71717a'
-    }
-
-    if (CATEGORY_COLORS[category]) {
-      return CATEGORY_COLORS[category]
-    }
-
-    let hash = 0
-
-    for (let i = 0; i < category.length; i += 1) {
-      hash = category.charCodeAt(i) + ((hash << 5) - hash)
-    }
-
-    const index = Math.abs(hash) % FALLBACK_COLORS.length
-
-    return FALLBACK_COLORS[index]
+  if (!category) {
+    return '#71717a'
   }
+
+  if (schemaColorMap[category]) {
+    return schemaColorMap[category]
+  }
+
+  return '#71717a'
+}
 
   const renderDonutTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload.length) {
@@ -151,6 +123,7 @@ function App() {
         </p>
       </div>
     )
+    
   }
 
   useEffect(() => {
@@ -177,36 +150,41 @@ function App() {
         const monthsData = await monthsResponse.json()
         setMonths(monthsData.months || [])
 
-        const [
+                const [
           transactionsResponse,
           summaryResponse,
           byCategoryResponse,
           monthlyTrendResponse,
+          categorySchemaResponse,
         ] = await Promise.all([
           fetch(`http://127.0.0.1:8000/api/transactions?${queryString}`),
           fetch(`http://127.0.0.1:8000/api/summary/consolidated?${queryString}`),
           fetch(`http://127.0.0.1:8000/api/summary/by-category?${queryString}`),
           fetch('http://127.0.0.1:8000/api/summary/monthly-trend'),
+          fetch('http://127.0.0.1:8000/api/categories/schema'),
         ])
 
-        if (
+                if (
           !transactionsResponse.ok ||
           !summaryResponse.ok ||
           !byCategoryResponse.ok ||
-          !monthlyTrendResponse.ok
+          !monthlyTrendResponse.ok ||
+          !categorySchemaResponse.ok
         ) {
           throw new Error('Erro ao buscar dados da API')
         }
 
-        const transactionsData = await transactionsResponse.json()
+                const transactionsData = await transactionsResponse.json()
         const summaryData = await summaryResponse.json()
         const byCategoryData = await byCategoryResponse.json()
         const monthlyTrendData = await monthlyTrendResponse.json()
+        const categorySchemaData = await categorySchemaResponse.json()
 
         setTransactions(transactionsData.items || [])
         setSummary(summaryData)
         setByCategory(byCategoryData.by_category || [])
         setMonthlyTrend(monthlyTrendData.monthly_trend || [])
+        setCategorySchema(categorySchemaData.categories || [])
       } catch (err) {
         setError(err.message || 'Erro inesperado')
       } finally {
@@ -249,28 +227,38 @@ function App() {
   const monthlyBalance = monthlyIncome - monthlyExpenses
 
   const rawCategories = byCategory
-  .filter((item) => item.expense_total > 0)
-  .map((item) => ({
-    name: item.category,
-    value: item.expense_total,
-  }))
-  .sort((a, b) => b.value - a.value)
+    .filter((item) => item.expense_total > 0)
+    .map((item) => ({
+      name: item.category,
+      value: item.expense_total,
+    }))
+    .sort((a, b) => b.value - a.value)
 
-const TOP_LIMIT = 5
+  const MAX_VISIBLE_CATEGORIES = 8
 
-const topCategories = rawCategories.slice(0, TOP_LIMIT)
-const otherCategories = rawCategories.slice(TOP_LIMIT)
+  const explicitOthers = rawCategories.find((item) => item.name === 'outros')
 
-const othersTotal = otherCategories.reduce(
-  (acc, item) => acc + item.value,
-  0
-)
+  const categoriesWithoutOthers = rawCategories.filter(
+    (item) => item.name !== 'outros'
+  )
 
-const expenseByCategory = othersTotal > 0
-  ? [...topCategories, { name: 'outros', value: othersTotal }]
-  : topCategories
+  const visibleCategories = categoriesWithoutOthers.slice(0, MAX_VISIBLE_CATEGORIES)
+  const hiddenCategories = categoriesWithoutOthers.slice(MAX_VISIBLE_CATEGORIES)
 
-  const donutLegendItems = expenseByCategory.slice(0, 6)
+  const hiddenCategoriesTotal = hiddenCategories.reduce(
+    (acc, item) => acc + item.value,
+    0
+  )
+
+  const expenseByCategory = [
+    ...visibleCategories,
+    ...(hiddenCategoriesTotal > 0
+      ? [{ name: 'mais_categorias', value: hiddenCategoriesTotal }]
+      : []),
+    ...(explicitOthers ? [explicitOthers] : []),
+  ]
+
+  const donutLegendItems = expenseByCategory
 
   const topExpenses = transactions
     .filter((transaction) => transaction.direction === 'out')
