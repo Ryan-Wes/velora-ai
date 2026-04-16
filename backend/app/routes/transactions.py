@@ -51,3 +51,17 @@ def update_transaction_category(
         display_description=payload.get("display_description"),
         user_note=payload.get("user_note"),
     )
+
+
+@router.patch("/transactions/bulk-category")
+def update_transactions_bulk_category(
+    payload: dict = Body(...),
+):
+    return transaction_service.bulk_update_transaction_category(
+        transaction_ids=payload.get("transaction_ids", []),
+        category=payload.get("category"),
+        main_category=payload.get("main_category"),
+        subcategory=payload.get("subcategory"),
+        display_description=payload.get("display_description"),
+        user_note=payload.get("user_note"),
+    )

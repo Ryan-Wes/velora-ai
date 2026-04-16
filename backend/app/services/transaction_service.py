@@ -426,3 +426,86 @@ def update_transaction_category(
         "category_source": updated_row["category_source"],
         "category_reviewed": updated_row["category_reviewed"],
     }
+
+
+def bulk_update_transaction_category(
+    transaction_ids: list[int],
+    category: str | None = None,
+    main_category: str | None = None,
+    subcategory: str | None = None,
+    display_description: str | None = None,
+    user_note: str | None = None,
+) -> dict:
+    if not transaction_ids:
+        return {
+            "success": False,
+            "updated_count": 0,
+            "message": "Nenhuma transação foi enviada para atualização",
+        }
+
+    normalized_category = normalize_category_name(category) if category else None
+
+    with get_connection() as connection:
+        cursor = connection.cursor()
+
+        category_fields_changed = any(
+            value is not None
+            for value in [category, main_category, subcategory]
+        )
+
+        updated_count = 0
+
+        for transaction_id in transaction_ids:
+            fields = []
+            values = []
+
+            if normalized_category:
+                fields.append("category = ?")
+                values.append(normalized_category)
+
+            if main_category is not None:
+                fields.append("main_category = ?")
+                values.append(main_category)
+
+            if subcategory is not None:
+                fields.append("subcategory = ?")
+                values.append(subcategory)
+
+            if display_description is not None:
+                fields.append("display_description = ?")
+                values.append(display_description)
+
+            if user_note is not None:
+                fields.append("user_note = ?")
+                values.append(user_note)
+
+            if category_fields_changed:
+                fields.append("category_source = ?")
+                values.append("manual")
+
+                fields.append("category_reviewed = ?")
+                values.append(1)
+
+            if not fields:
+                continue
+
+            values.append(transaction_id)
+
+            query = f"""
+                UPDATE transactions
+                SET {", ".join(fields)}
+                WHERE id = ?
+            """
+
+            cursor.execute(query, values)
+
+            if cursor.rowcount > 0:
+                updated_count += 1
+
+        connection.commit()
+
+    return {
+        "success": True,
+        "updated_count": updated_count,
+        "message": f"{updated_count} transações atualizadas com sucesso",
+    }

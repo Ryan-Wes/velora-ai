@@ -219,12 +219,24 @@ def get_by_category_summary(
     grouped = {}
 
     for transaction in transactions:
-        raw_category = transaction["category"]
-        category = normalize_category_name(raw_category) or "sem categoria"
         is_ignored = int(transaction["is_ignored_in_spending"])
         is_internal = int(transaction["is_internal_transfer"])
 
+        # Dashboard de categoria deve mostrar só gasto/entrada real
         if is_ignored or is_internal:
+            continue
+
+        raw_main_category = transaction.get("main_category")
+        raw_legacy_category = transaction.get("category")
+
+        category = (
+            normalize_category_name(raw_main_category)
+            or normalize_category_name(raw_legacy_category)
+            or "sem categoria"
+        )
+
+        # Movimentações não entram no donut nem no resumo por categoria
+        if category == "movimentacoes":
             continue
 
         direction = transaction["direction"]
@@ -257,7 +269,6 @@ def get_by_category_summary(
         ],
         key=lambda item: (-item["expense_total"], -item["count"], item["category"]),
     )
-
 
 def get_monthly_trend_summary(
     transaction_type: str | None = None,
