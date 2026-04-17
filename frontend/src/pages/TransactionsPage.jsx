@@ -4,7 +4,6 @@ import '../index.css'
 import { getCategoryDisplayColor } from '../utils/categoryStyle'
 
 
-const FALLBACK_CATEGORY_OPTIONS = ['nao_identificado']
 
 const FALLBACK_SUBCATEGORY_MAP = {
   nao_identificado: ['nao_identificado'],
@@ -58,12 +57,11 @@ function TransactionsPage() {
   const [months, setMonths] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [formError, setFormError] = useState('')
   const [total, setTotal] = useState(0)
   const [savingId, setSavingId] = useState(null)
-  const [categoryOptions, setCategoryOptions] = useState([
-    ...FALLBACK_CATEGORY_OPTIONS,
-    '__custom__',
-  ])
+
 
   const [selectedFiles, setSelectedFiles] = useState([])
   const [uploadResults, setUploadResults] = useState([])
@@ -84,17 +82,21 @@ function TransactionsPage() {
   })
 
   const [selectedTransaction, setSelectedTransaction] = useState(null)
-  const [selectedCategory, setSelectedCategory] = useState('')
-  const [customCategory, setCustomCategory] = useState('')
   const [userNote, setUserNote] = useState('')
   const [mainCategory, setMainCategory] = useState('')
   const [subcategory, setSubcategory] = useState('')
+  const [applyToSimilar, setApplyToSimilar] = useState(false)
+  const [similarPreviewCount, setSimilarPreviewCount] = useState(0)
+  const [loadingSimilarPreview, setLoadingSimilarPreview] = useState(false)
 
   const [categorySchema, setCategorySchema] = useState([])
   const [subcategoryMap, setSubcategoryMap] = useState(FALLBACK_SUBCATEGORY_MAP)
 
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([])
   const [isBulkEditMode, setIsBulkEditMode] = useState(false)
+
+  const isSingleEditMode = Boolean(selectedTransaction)
+  const isAnyEditModalOpen = isSingleEditMode || isBulkEditMode
 
   const schemaColorMap = categorySchema.reduce((acc, item) => {
     acc[item.key] = item.color
@@ -163,8 +165,6 @@ function TransactionsPage() {
 
         setCategorySchema(categories)
 
-        const nextCategoryOptions = categories.map((item) => item.key)
-
         const nextSubcategoryMap = categories.reduce((accumulator, item) => {
           accumulator[item.key] = (item.subcategories || []).map(
             (subcategory) => subcategory.key
@@ -172,7 +172,7 @@ function TransactionsPage() {
           return accumulator
         }, {})
 
-        setCategoryOptions([...nextCategoryOptions, '__custom__'])
+
         setSubcategoryMap(
           Object.keys(nextSubcategoryMap).length
             ? nextSubcategoryMap
@@ -180,7 +180,7 @@ function TransactionsPage() {
         )
       } catch (err) {
         console.error(err)
-        setCategoryOptions([...FALLBACK_CATEGORY_OPTIONS, '__custom__'])
+
         setSubcategoryMap(FALLBACK_SUBCATEGORY_MAP)
       }
     }
@@ -192,9 +192,11 @@ function TransactionsPage() {
     fetchTransactions()
   }, [filters, pagination])
 
-  async function fetchTransactions() {
+  async function fetchTransactions(showLoader = true) {
     try {
-      setLoading(true)
+      if (showLoader) {
+        setLoading(true)
+      }
       setError('')
 
       const queryParams = new URLSearchParams()
@@ -221,7 +223,9 @@ function TransactionsPage() {
     } catch (err) {
       setError(err.message || 'Erro inesperado')
     } finally {
-      setLoading(false)
+      if (showLoader) {
+        setLoading(false)
+      }
     }
   }
 
@@ -312,23 +316,28 @@ function TransactionsPage() {
     ])
   }
 
-  function openBulkEditModal() {
-    setSelectedTransaction(null)
-    setSelectedCategory('')
-    setCustomCategory('')
+  function resetEditForm() {
     setUserNote('')
     setMainCategory('')
     setSubcategory('')
+    setApplyToSimilar(false)
+    setSimilarPreviewCount(0)
+    setLoadingSimilarPreview(false)
+    setFormError('')
+  }
+
+  function openBulkEditModal() {
+    setSelectedTransaction(null)
+    setSuccessMessage('')
+    setFormError('')
+    resetEditForm()
     setIsBulkEditMode(true)
   }
 
   function closeBulkEditModal() {
     setIsBulkEditMode(false)
-    setSelectedCategory('')
-    setCustomCategory('')
-    setUserNote('')
-    setMainCategory('')
-    setSubcategory('')
+    setSelectedTransaction(null)
+    resetEditForm()
   }
 
   async function handleResetDatabase() {
@@ -400,36 +409,93 @@ function TransactionsPage() {
 
   function openEditModal(transaction) {
     const resolvedMainCategory =
-      transaction.main_category ||
-      transaction.category ||
-      'nao_identificado'
+      transaction.main_category || 'nao_identificado'
 
     setSelectedTransaction(transaction)
-    setSelectedCategory(transaction.category || resolvedMainCategory)
-    setCustomCategory('')
+    setSuccessMessage('')
+    setFormError('')
     setUserNote(transaction.user_note || '')
     setMainCategory(resolvedMainCategory)
     setSubcategory(transaction.subcategory || '')
+    setApplyToSimilar(false)
+    setIsBulkEditMode(false)
   }
 
   function closeEditModal() {
     setSelectedTransaction(null)
-    setSelectedCategory('')
-    setCustomCategory('')
-    setUserNote('')
+    setIsBulkEditMode(false)
+    resetEditForm()
+  }
+
+  async function fetchSimilarPreview(transactionId) {
+    if (!transactionId) {
+      setSimilarPreviewCount(0)
+      return
+    }
+
+    try {
+      setLoadingSimilarPreview(true)
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/transactions/${transactionId}/similar-preview`
+      )
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar prévia de transações semelhantes')
+      }
+
+      const data = await response.json()
+      setSimilarPreviewCount(data.similar_count || 0)
+    } catch (err) {
+      setSimilarPreviewCount(0)
+    } finally {
+      setLoadingSimilarPreview(false)
+    }
   }
 
   useEffect(() => {
     function handleKeyDown(event) {
-      if (!selectedTransaction) return
+      if (!isAnyEditModalOpen) return
+
+      const tagName = event.target?.tagName?.toLowerCase()
+      const isTextArea = tagName === 'textarea'
+      const isInput = tagName === 'input'
+      const isSelect = tagName === 'select'
 
       if (event.key === 'Escape') {
+        event.preventDefault()
         closeEditModal()
+        return
       }
 
-      if (event.key === 'Enter') {
+      if (event.key === 'Enter' && !isTextArea) {
         event.preventDefault()
-        saveCategory()
+
+        if (isBulkEditMode) {
+          saveBulkCategory()
+          return
+        }
+
+        if (selectedTransaction) {
+          saveCategory()
+        }
+      }
+
+      if (event.key === 'Enter' && isInput && !selectedTransaction && !isBulkEditMode) {
+        event.preventDefault()
+      }
+
+      if (event.key === 'Enter' && isSelect) {
+        event.preventDefault()
+
+        if (isBulkEditMode) {
+          saveBulkCategory()
+          return
+        }
+
+        if (selectedTransaction) {
+          saveCategory()
+        }
       }
     }
 
@@ -438,22 +504,27 @@ function TransactionsPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [selectedTransaction, mainCategory, subcategory, userNote, selectedCategory, customCategory])
+  }, [isAnyEditModalOpen, isBulkEditMode, selectedTransaction, mainCategory, subcategory, userNote])
 
   async function saveCategory() {
-    const finalCategory =
-      selectedCategory === '__custom__'
-        ? customCategory.trim()
-        : selectedCategory
+    if (!selectedTransaction) {
+      return
+    }
 
-    if (!finalCategory) {
-      setError('Digite o nome da nova categoria')
+    if (!mainCategory) {
+      setFormError('Selecione uma categoria principal.')
+      return
+    }
+
+    if (!subcategory) {
+      setFormError('Selecione uma subcategoria.')
       return
     }
 
     try {
       setSavingId(selectedTransaction.id)
       setError('')
+      setFormError('')
 
       const response = await fetch(
         `http://127.0.0.1:8000/api/transactions/${selectedTransaction.id}/category`,
@@ -463,11 +534,11 @@ function TransactionsPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            category: finalCategory,
             main_category: mainCategory,
-            subcategory: subcategory || null,
+            subcategory: subcategory,
             display_description: selectedTransaction.display_description,
-            user_note: userNote,
+            user_note: userNote || null,
+            apply_to_similar: applyToSimilar,
           }),
         }
       )
@@ -482,43 +553,18 @@ function TransactionsPage() {
         throw new Error(updatedData.message || 'Erro ao atualizar categoria')
       }
 
-      setTransactions((prevTransactions) =>
-        prevTransactions.map((transaction) =>
-          transaction.id === selectedTransaction.id
-            ? {
-              ...transaction,
-              category: updatedData.category,
-              main_category: updatedData.main_category,
-              subcategory: updatedData.subcategory,
-              display_description: updatedData.display_description,
-              user_note: updatedData.user_note,
-              category_source: updatedData.category_source,
-              category_source: updatedData.category_source,
-              category_reviewed: updatedData.category_reviewed,
-            }
-            : transaction
+      if (updatedData.similar_updated_count > 0) {
+        setSuccessMessage(
+          `Categoria atualizada. Aplicado em ${updatedData.similar_updated_count} transações semelhantes.`
         )
-      )
-
-      setCategoryOptions((prevOptions) => {
-        const nextOptions = prevOptions.filter((option) => option !== '__custom__')
-
-        if (!nextOptions.includes(updatedData.category)) {
-          nextOptions.push(updatedData.category)
-        }
-
-        nextOptions.sort((a, b) =>
-          formatCategoryLabel(a).localeCompare(formatCategoryLabel(b), 'pt-BR', {
-            sensitivity: 'base',
-          })
-        )
-
-        return [...nextOptions, '__custom__']
-      })
+      } else {
+        setSuccessMessage('Categoria atualizada com sucesso.')
+      }
 
       closeEditModal()
+      await fetchTransactions(false)
     } catch (err) {
-      setError(err.message || 'Erro ao salvar categoria')
+      setFormError(err.message || 'Erro ao salvar categoria')
     } finally {
       setSavingId(null)
     }
@@ -526,12 +572,23 @@ function TransactionsPage() {
 
   async function saveBulkCategory() {
     if (!selectedTransactionIds.length) {
-      setError('Selecione pelo menos uma transação')
+      setFormError('Selecione pelo menos uma transação.')
+      return
+    }
+
+    if (!mainCategory) {
+      setFormError('Selecione uma categoria principal.')
+      return
+    }
+
+    if (!subcategory) {
+      setFormError('Selecione uma subcategoria.')
       return
     }
 
     try {
       setError('')
+      setFormError('')
 
       const response = await fetch(
         'http://127.0.0.1:8000/api/transactions/bulk-category',
@@ -561,11 +618,12 @@ function TransactionsPage() {
         )
       }
 
-      await fetchTransactions()
-      setSelectedTransactionIds([])
+      setSuccessMessage('Transações atualizadas com sucesso.')
       closeBulkEditModal()
+      setSelectedTransactionIds([])
+      await fetchTransactions(false)
     } catch (err) {
-      setError(err.message || 'Erro ao salvar edição em lote')
+      setFormError(err.message || 'Erro ao salvar edição em lote')
     }
   }
 
@@ -737,6 +795,11 @@ function TransactionsPage() {
           </section>
         )}
 
+        {successMessage && (
+          <div className="success-banner">
+            {successMessage}
+          </div>
+        )}
         <section className="filters">
           <select
             value={filters.month}
@@ -782,7 +845,7 @@ function TransactionsPage() {
           <table>
             <thead>
               <tr>
-                <th className="cell-center">
+                <th className="cell-center checkbox-cell">
                   <input
                     type="checkbox"
                     ref={(el) => {
@@ -801,15 +864,14 @@ function TransactionsPage() {
                     onChange={toggleSelectAllCurrentPage}
                   />
                 </th>
-                <th className="cell-center">Data</th>
-                <th className="cell-left">Descrição</th>
-                <th>Tipo</th>
-                <th className="cell-center">Origem</th>
-                <th className="cell-center">Categoria</th>
-                <th className="cell-center">Subcategoria</th>
-                <th className="cell-center">Definição</th>
-                <th className="cell-left">Valor</th>
-                <th className="cell-center">Editar</th>
+                <th className="cell-center date-cell"><span>Data</span></th>
+                <th className="cell-center transaction-description-cell"><span>Descrição</span></th>
+                <th className="cell-center type-cell"><span>Tipo</span></th>
+                <th className="cell-center origin-cell"><span>Origem</span></th>
+                <th className="cell-center category-cell"><span>Categoria</span></th>
+                <th className="cell-center subcategory-cell"><span>Subcategoria</span></th>
+                <th className="cell-center source-cell"><span>Definição</span></th>
+                <th className="cell-center value-cell"><span>Valor</span></th>
               </tr>
             </thead>
 
@@ -849,7 +911,7 @@ function TransactionsPage() {
                     className={`${shouldHighlightRow ? 'row-needs-category' : ''}
             ${Number(transaction.category_reviewed) === 0 ? 'row-not-reviewed' : ''}`}
                   >
-                    <td className="cell-center">
+                    <td className="cell-center checkbox-cell">
                       <input
                         type="checkbox"
                         checked={selectedTransactionIds.includes(transaction.id)}
@@ -857,11 +919,11 @@ function TransactionsPage() {
                       />
                     </td>
 
-                    <td className="cell-center">
+                    <td className="cell-center date-cell">
                       {formatDate(transaction.transaction_date)}
                     </td>
 
-                    <td className="cell-left">
+                    <td className="cell-left transaction-description-cell">
                       <span
                         className={`transaction-description ${transaction.user_note ? 'has-note' : ''}`}
                         data-note={transaction.user_note || ''}
@@ -870,20 +932,21 @@ function TransactionsPage() {
                       </span>
                     </td>
 
-                    <td>
+                    <td className="cell-center type-cell">
                       {transactionTypeLabels[transaction.transaction_type] ||
                         transaction.transaction_type}
                     </td>
 
-                    <td className="cell-center">
+                    <td className="cell-center origin-cell">
                       {sourceLabels[transaction.source_type] || transaction.source_type}
                     </td>
 
-                    <td className="cell-center">
+                    <td className="cell-center category-cell">
                       <button
                         type="button"
                         onClick={() => openEditModal(transaction)}
                         className="category-badge category-trigger"
+                        title="Clique para editar"
                         style={{
                           backgroundColor: getCategoryDisplayColor(
                             getCategoryColor(transaction.main_category),
@@ -894,15 +957,13 @@ function TransactionsPage() {
                         }}
                       >
                         <span>
-                          {formatCategoryLabel(
-                            transaction.main_category || transaction.category
-                          )}
+                          {formatCategoryLabel(transaction.main_category) || '-'}
                         </span>
                         <span className="category-chevron">˅</span>
                       </button>
                     </td>
 
-                    <td className="cell-center">
+                    <td className="cell-center subcategory-cell">
                       <span
                         className="category-badge"
                         style={{
@@ -920,7 +981,7 @@ function TransactionsPage() {
                       </span>
                     </td>
 
-                    <td className="cell-center">
+                    <td className="cell-center source-cell">
                       <span
                         className={`source-badge ${transaction.category_source === 'manual'
                           ? 'source-manual'
@@ -931,22 +992,18 @@ function TransactionsPage() {
                       </span>
                     </td>
 
-                    <td className={transaction.direction === 'in' ? 'green cell-left' : 'red cell-left'}>
+                    <td
+                      className={
+                        transaction.direction === 'in'
+                          ? 'green cell-left value-cell'
+                          : 'red cell-left value-cell'
+                      }
+                    >
                       {transaction.direction === 'in' ? '+' : '-'}{' '}
                       {formatCurrency(transaction.absolute_amount)}
                     </td>
 
-                    <td className="cell-center">
-                      <button
-                        type="button"
-                        className="edit-icon-button"
-                        onClick={() => openEditModal(transaction)}
-                        aria-label="Editar transação"
-                        title="Editar transação"
-                      >
-                        ✏️
-                      </button>
-                    </td>
+
                   </tr>
                 )
               })}
@@ -987,19 +1044,24 @@ function TransactionsPage() {
         </section>
       </div>
 
-      {selectedTransaction && !isBulkEditMode && (
+      {isSingleEditMode && !isBulkEditMode && (
         <div className="modal-overlay" onClick={closeEditModal}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h2>Editar categoria</h2>
 
             <div className="modal-content">
+              {formError && (
+                <div className="modal-error-banner">
+                  {formError}
+                </div>
+              )}
               <p>
                 <strong>Descrição:</strong> {selectedTransaction.raw_description}
               </p>
 
               <p>
                 <strong>Categoria atual:</strong>{' '}
-                {formatCategoryLabel(selectedTransaction.category) || '-'}
+                {formatCategoryLabel(selectedTransaction.main_category) || '-'}
               </p>
 
               <p>
@@ -1020,17 +1082,13 @@ function TransactionsPage() {
                   setSubcategory('')
                 }}
               >
-                <option value="alimentacao">Alimentação</option>
-                <option value="moradia">Moradia</option>
-                <option value="transporte">Transporte</option>
-                <option value="carro">Carro</option>
-                <option value="saude">Saúde</option>
-                <option value="vestuario">Vestuário</option>
-                <option value="lazer">Lazer</option>
-                <option value="assinaturas">Assinaturas</option>
-                <option value="educacao">Educação</option>
-                <option value="outros">Outros</option>
-                <option value="nao_identificado">Não identificado</option>
+                <option value="">Selecione</option>
+
+                {categorySchema.map((category) => (
+                  <option key={category.key} value={category.key}>
+                    {category.label}
+                  </option>
+                ))}
               </select>
 
               <label className="modal-label">
@@ -1041,8 +1099,9 @@ function TransactionsPage() {
                 className="modal-select"
                 value={subcategory}
                 onChange={(e) => setSubcategory(e.target.value)}
+                disabled={!mainCategory}
               >
-                <option value="">Nenhuma</option>
+                <option value="">Selecione</option>
 
                 {(subcategoryMap[mainCategory] || []).map((sub) => (
                   <option key={sub} value={sub}>
@@ -1063,32 +1122,35 @@ function TransactionsPage() {
                 placeholder="Ex: Pix recebido por fulano dia tal, ou gasto recorrente todo mês, etc"
               />
 
-              <label htmlFor="category-select" className="modal-label">
-                Categoria legada
+              <label className="checkbox-filter">
+                <input
+                  type="checkbox"
+                  checked={applyToSimilar}
+                  onChange={async (e) => {
+                    const checked = e.target.checked
+                    setApplyToSimilar(checked)
+
+                    if (checked && selectedTransaction?.id) {
+                      await fetchSimilarPreview(selectedTransaction.id)
+                    } else {
+                      setSimilarPreviewCount(0)
+                    }
+                  }}
+                />
+                Aplicar para descrições semelhantes
               </label>
 
-              <select
-                id="category-select"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="modal-select"
-              >
-                {categoryOptions.map((category) => (
-                  <option key={category} value={category}>
-                    {formatCategoryLabel(category)}
-                  </option>
-                ))}
-              </select>
 
-              {selectedCategory === '__custom__' && (
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="Digite a nova categoria"
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
-                />
+              {applyToSimilar && (
+                <div className="similar-preview-banner">
+                  {loadingSimilarPreview
+                    ? 'Buscando transações semelhantes...'
+                    : similarPreviewCount > 0
+                      ? `Isso vai atualizar ${similarPreviewCount} transações semelhantes.`
+                      : 'Nenhuma transação semelhante será atualizada.'}
+                </div>
               )}
+
             </div>
 
 
@@ -1115,6 +1177,11 @@ function TransactionsPage() {
             <h2>Editar transações em lote</h2>
 
             <div className="modal-content">
+              {formError && (
+                <div className="modal-error-banner">
+                  {formError}
+                </div>
+              )}
               <p>
                 <strong>Selecionadas:</strong> {selectedTransactionIds.length}
               </p>
@@ -1151,7 +1218,7 @@ function TransactionsPage() {
                 onChange={(e) => setSubcategory(e.target.value)}
                 disabled={!mainCategory}
               >
-                <option value="">Nenhuma</option>
+                <option value="">Selecione</option>
 
                 {(subcategoryMap[mainCategory] || []).map((sub) => (
                   <option key={sub} value={sub}>

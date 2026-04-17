@@ -333,11 +333,31 @@ def update_transaction_category(
     subcategory: str | None = None,
     display_description: str | None = None,
     user_note: str | None = None,
+    apply_to_similar: bool = False,
 ) -> dict:
     normalized_category = normalize_category_name(category) if category else None
 
     with get_connection() as connection:
         cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id, normalized_description
+            FROM transactions
+            WHERE id = ?
+            """,
+            (transaction_id,),
+        )
+        base_transaction = cursor.fetchone()
+
+        if not base_transaction:
+            return {
+                "success": False,
+                "message": "Transaction not found",
+            }
+
+        base_transaction = dict(base_transaction)
+        base_normalized_description = base_transaction.get("normalized_description")
 
         fields = []
         values = []
@@ -386,9 +406,8 @@ def update_transaction_category(
             WHERE id = ?
         """
 
-        values.append(transaction_id)
-
-        cursor.execute(query, values)
+        values_for_current_transaction = [*values, transaction_id]
+        cursor.execute(query, values_for_current_transaction)
         connection.commit()
 
         if cursor.rowcount == 0:
@@ -396,6 +415,21 @@ def update_transaction_category(
                 "success": False,
                 "message": "Transaction not found",
             }
+
+        similar_updated_count = 0
+
+        if apply_to_similar and base_normalized_description:
+            similar_query = f"""
+                UPDATE transactions
+                SET {', '.join(fields)}
+                WHERE normalized_description = ?
+                  AND id != ?
+            """
+
+            similar_values = [*values, base_normalized_description, transaction_id]
+            cursor.execute(similar_query, similar_values)
+            similar_updated_count = cursor.rowcount
+            connection.commit()
 
         cursor.execute(
             """
@@ -425,6 +459,59 @@ def update_transaction_category(
         "user_note": updated_row["user_note"],
         "category_source": updated_row["category_source"],
         "category_reviewed": updated_row["category_reviewed"],
+        "apply_to_similar": apply_to_similar,
+        "similar_updated_count": similar_updated_count,
+    }
+
+
+def get_similar_transactions_preview(transaction_id: int) -> dict:
+    with get_connection() as connection:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id, normalized_description
+            FROM transactions
+            WHERE id = ?
+            """,
+            (transaction_id,),
+        )
+        base_transaction = cursor.fetchone()
+
+        if not base_transaction:
+            return {
+                "success": False,
+                "message": "Transaction not found",
+                "transaction_id": transaction_id,
+                "similar_count": 0,
+            }
+
+        base_transaction = dict(base_transaction)
+        base_normalized_description = base_transaction.get("normalized_description")
+
+        if not base_normalized_description:
+            return {
+                "success": True,
+                "transaction_id": transaction_id,
+                "similar_count": 0,
+            }
+
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM transactions
+            WHERE normalized_description = ?
+              AND id != ?
+            """,
+            (base_normalized_description, transaction_id),
+        )
+        row = cursor.fetchone()
+        similar_count = row["total"] if row else 0
+
+    return {
+        "success": True,
+        "transaction_id": transaction_id,
+        "similar_count": similar_count,
     }
 
 

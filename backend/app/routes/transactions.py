@@ -50,6 +50,14 @@ def update_transaction_category(
         subcategory=payload.get("subcategory"),
         display_description=payload.get("display_description"),
         user_note=payload.get("user_note"),
+        apply_to_similar=payload.get("apply_to_similar", False),
+    )
+
+
+@router.get("/transactions/{transaction_id}/similar-preview")
+def get_similar_transactions_preview(transaction_id: int):
+    return transaction_service.get_similar_transactions_preview(
+        transaction_id=transaction_id,
     )
 
 
