@@ -657,22 +657,26 @@ function TransactionsPage() {
   }
 
   return (
-    <main>
-      <div className="container">
-        <header className="header">
-          <h1>Transações</h1>
-          <p>Visualize, filtre, importe arquivos e revise categorias</p>
-          <div style={{ marginTop: '16px' }}>
-            <Link
-              to="/"
-              style={{ color: '#8864f6', textDecoration: 'none' }}
-            >
-              ← Voltar para dashboard
-            </Link>
+  <main>
+    <div className="container transactions-page">
+      <header className="header transactions-header">
+        <div className="transactions-header-top">
+          <div>
+            <h1>Transações</h1>
+            <p>Visualize, filtre, importe arquivos e revise categorias</p>
           </div>
-        </header>
 
-        <div className="dashboard-toolbar">
+          <Link
+            to="/"
+            className="back-link-button"
+          >
+            ← Voltar para dashboard
+          </Link>
+        </div>
+      </header>
+
+      <section className="transactions-toolbar-card">
+        <div className="transactions-toolbar-left">
           <button
             className="filter-button"
             onClick={() => setShowUpload(!showUpload)}
@@ -689,118 +693,139 @@ function TransactionsPage() {
           </button>
         </div>
 
-        {showUpload && (
-          <section className="table-container" style={{ marginBottom: '24px' }}>
-            <h2>Importar dados</h2>
+        <div className="transactions-toolbar-right">
+          <span className="transactions-total-pill">
+            Total encontrado: {total}
+          </span>
+        </div>
+      </section>
 
-            <div
-              className={`upload-dropzone ${isDragging ? 'dragging' : ''}`}
-              onDragOver={(e) => {
-                e.preventDefault()
-                setIsDragging(true)
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault()
-                setIsDragging(false)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                setIsDragging(false)
-                handleSelectedFiles(e.dataTransfer.files)
-              }}
-            >
-              <p className="upload-title">
-                Arraste PDFs e CSVs aqui ou escolha no botão
-              </p>
+      {showUpload && (
+        <section className="table-container transactions-upload-card">
+          <div className="transactions-section-header">
+            <div>
+              <h2>Importar dados</h2>
+              <p>Envie PDFs e CSVs para atualizar a base</p>
+            </div>
+          </div>
 
-              <p className="upload-subtitle">
-                Você pode enviar vários arquivos de uma vez
-              </p>
+          <div
+            className={`upload-dropzone ${isDragging ? 'dragging' : ''}`}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragging(true)
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault()
+              setIsDragging(false)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragging(false)
+              handleSelectedFiles(e.dataTransfer.files)
+            }}
+          >
+            <p className="upload-title">
+              Arraste PDFs e CSVs aqui ou escolha no botão
+            </p>
 
-              <div className="upload-actions">
-                <label className="filter-button upload-label">
-                  Escolher arquivos
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.csv"
-                    className="hidden-file-input"
-                    onChange={(e) => handleSelectedFiles(e.target.files)}
-                  />
-                </label>
+            <p className="upload-subtitle">
+              Você pode enviar vários arquivos de uma vez
+            </p>
 
-                <button
-                  className="filter-button"
-                  onClick={handleUploadFiles}
-                  disabled={uploading || !selectedFiles.length}
-                >
-                  {uploading ? 'Enviando...' : 'Enviar arquivos'}
-                </button>
+            <div className="upload-actions">
+              <label className="filter-button upload-label">
+                Escolher arquivos
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.csv"
+                  className="hidden-file-input"
+                  onChange={(e) => handleSelectedFiles(e.target.files)}
+                />
+              </label>
 
-                <button
-                  className="secondary-button"
-                  onClick={handleResetDatabase}
-                  disabled={resetting}
-                >
-                  {resetting ? 'Limpando...' : 'Limpar base'}
-                </button>
+              <button
+                className="filter-button"
+                onClick={handleUploadFiles}
+                disabled={uploading || !selectedFiles.length}
+              >
+                {uploading ? 'Enviando...' : 'Enviar arquivos'}
+              </button>
+
+              <button
+                className="secondary-button"
+                onClick={handleResetDatabase}
+                disabled={resetting}
+              >
+                {resetting ? 'Limpando...' : 'Limpar base'}
+              </button>
+            </div>
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div className="transactions-upload-block">
+              <h3 className="transactions-subtitle">
+                Arquivos selecionados ({selectedFiles.length})
+              </h3>
+
+              <div className="top-category-list">
+                {selectedFiles.map((file) => (
+                  <div
+                    key={`${file.name}-${file.size}`}
+                    className="top-category-item"
+                  >
+                    <span>{file.name}</span>
+                    <strong>{(file.size / 1024).toFixed(1)} KB</strong>
+                  </div>
+                ))}
               </div>
             </div>
+          )}
 
-            {selectedFiles.length > 0 && (
-              <div style={{ marginTop: '20px' }}>
-                <h3 style={{ marginBottom: '12px' }}>
-                  Arquivos selecionados ({selectedFiles.length})
-                </h3>
+          {uploadResults.length > 0 && (
+            <div className="transactions-upload-block">
+              <h3 className="transactions-subtitle">
+                Resultado do upload
+              </h3>
 
-                <div className="top-category-list">
-                  {selectedFiles.map((file) => (
-                    <div
-                      key={`${file.name}-${file.size}`}
-                      className="top-category-item"
+              <div className="top-category-list">
+                {uploadResults.map((result, index) => (
+                  <div
+                    key={`${result.filename}-${index}`}
+                    className="top-category-item"
+                  >
+                    <span>{result.original_filename || result.filename}</span>
+                    <strong
+                      style={{ color: result.error ? '#ef4444' : '#22c55e' }}
                     >
-                      <span>{file.name}</span>
-                      <strong>{(file.size / 1024).toFixed(1)} KB</strong>
-                    </div>
-                  ))}
-                </div>
+                      {result.error
+                        ? `Erro: ${result.error}`
+                        : `OK • inseridas: ${result.inserted_count ?? 0} • ignoradas: ${result.skipped_count ?? 0}`}
+                    </strong>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
+        </section>
+      )}
 
-            {uploadResults.length > 0 && (
-              <div style={{ marginTop: '20px' }}>
-                <h3 style={{ marginBottom: '12px' }}>
-                  Resultado do upload
-                </h3>
+      {successMessage && (
+        <div className="success-banner">
+          {successMessage}
+        </div>
+      )}
 
-                <div className="top-category-list">
-                  {uploadResults.map((result, index) => (
-                    <div
-                      key={`${result.filename}-${index}`}
-                      className="top-category-item"
-                    >
-                      <span>{result.original_filename || result.filename}</span>
-                      <strong
-                        style={{ color: result.error ? '#ef4444' : '#22c55e' }}
-                      >
-                        {result.error
-                          ? `Erro: ${result.error}`
-                          : `OK • inseridas: ${result.inserted_count ?? 0} • ignoradas: ${result.skipped_count ?? 0}`}
-                      </strong>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {successMessage && (
-          <div className="success-banner">
-            {successMessage}
+      <section className="table-container transactions-filters-card">
+        <div className="transactions-section-header">
+          <div>
+            <h2>Filtros</h2>
+            <p>Refine a listagem sem sair da página</p>
           </div>
-        )}
-        <section className="filters">
+        </div>
+
+        <div className="filters transactions-filters">
           <select
             value={filters.month}
             onChange={(e) => handleFilterChange('month', e.target.value)}
@@ -836,12 +861,18 @@ function TransactionsPage() {
               </option>
             ))}
           </select>
-        </section>
+        </div>
+      </section>
 
-        <section className="table-container">
-          <h2>Lista de transações</h2>
-          <p>Total encontrado: {total}</p>
+      <section className="table-container transactions-table-card">
+        <div className="transactions-section-header transactions-table-header">
+          <div>
+            <h2>Lista de transações</h2>
+            <p>Edite categorias direto pela tabela</p>
+          </div>
+        </div>
 
+        <div className="transactions-table-wrapper">
           <table>
             <thead>
               <tr>
@@ -1002,47 +1033,46 @@ function TransactionsPage() {
                       {transaction.direction === 'in' ? '+' : '-'}{' '}
                       {formatCurrency(transaction.absolute_amount)}
                     </td>
-
-
                   </tr>
                 )
               })}
             </tbody>
           </table>
+        </div>
 
-          <div className="pagination">
-            <button
-              className="secondary-button"
-              onClick={() =>
-                setPagination((prev) => ({
-                  ...prev,
-                  offset: Math.max(prev.offset - prev.limit, 0),
-                }))
-              }
-              disabled={pagination.offset === 0}
-            >
-              Anterior
-            </button>
+        <div className="pagination transactions-pagination">
+          <button
+            className="secondary-button"
+            onClick={() =>
+              setPagination((prev) => ({
+                ...prev,
+                offset: Math.max(prev.offset - prev.limit, 0),
+              }))
+            }
+            disabled={pagination.offset === 0}
+          >
+            Anterior
+          </button>
 
-            <span>
-              Página {currentPage} de {totalPages}
-            </span>
+          <span>
+            Página {currentPage} de {totalPages}
+          </span>
 
-            <button
-              className="secondary-button"
-              onClick={() =>
-                setPagination((prev) => ({
-                  ...prev,
-                  offset: prev.offset + prev.limit,
-                }))
-              }
-              disabled={currentPage >= totalPages}
-            >
-              Próxima
-            </button>
-          </div>
-        </section>
-      </div>
+          <button
+            className="secondary-button"
+            onClick={() =>
+              setPagination((prev) => ({
+                ...prev,
+                offset: prev.offset + prev.limit,
+              }))
+            }
+            disabled={currentPage >= totalPages}
+          >
+            Próxima
+          </button>
+        </div>
+      </section>
+    </div>
 
       {isSingleEditMode && !isBulkEditMode && (
         <div className="modal-overlay" onClick={closeEditModal}>
