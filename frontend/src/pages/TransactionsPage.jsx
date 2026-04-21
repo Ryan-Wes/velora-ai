@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCategoryDisplayColor } from '../utils/categoryStyle'
 import PageLoader from '../components/PageLoader'
@@ -56,8 +56,9 @@ function TransactionsPage() {
   const [transactions, setTransactions] = useState([])
   const [months, setMonths] = useState([])
   const [loading, setLoading] = useState(true)
+  const hasLoadedTransactionsRef = useRef(false)
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState(null)
   const [formError, setFormError] = useState('')
   const [total, setTotal] = useState(0)
   const [savingId, setSavingId] = useState(null)
@@ -69,11 +70,17 @@ function TransactionsPage() {
   const [resetting, setResetting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
+  const [showFilters, setShowFilters] = useState(true)
 
   const [filters, setFilters] = useState({
     month: '',
     type: '',
     source: '',
+    main_category: '',
+    subcategory: '',
+    category_source: '',
+    reviewed: '',
+    pending_review: '',
   })
 
   const [pagination, setPagination] = useState({
@@ -189,7 +196,13 @@ function TransactionsPage() {
   }, [])
 
   useEffect(() => {
-    fetchTransactions()
+    if (!hasLoadedTransactionsRef.current) {
+      fetchTransactions(true)
+      hasLoadedTransactionsRef.current = true
+      return
+    }
+
+    fetchTransactions(false)
   }, [filters, pagination])
 
   async function fetchTransactions(showLoader = true) {
@@ -204,6 +217,26 @@ function TransactionsPage() {
       if (filters.month) queryParams.append('month', filters.month)
       if (filters.type) queryParams.append('type', filters.type)
       if (filters.source) queryParams.append('source', filters.source)
+
+      if (filters.main_category) {
+        queryParams.append('main_category', filters.main_category)
+      }
+
+      if (filters.subcategory) {
+        queryParams.append('subcategory', filters.subcategory)
+      }
+
+      if (filters.category_source) {
+        queryParams.append('category_source', filters.category_source)
+      }
+
+      if (filters.reviewed !== '') {
+        queryParams.append('reviewed', filters.reviewed)
+      }
+
+      if (filters.pending_review !== '') {
+        queryParams.append('pending_review', filters.pending_review)
+      }
 
       queryParams.append('limit', String(pagination.limit))
       queryParams.append('offset', String(pagination.offset))
@@ -234,6 +267,24 @@ function TransactionsPage() {
       ...prev,
       [field]: value,
     }))
+
+    setPagination((prev) => ({
+      ...prev,
+      offset: 0,
+    }))
+  }
+
+  function handleClearFilters() {
+    setFilters({
+      month: '',
+      type: '',
+      source: '',
+      main_category: '',
+      subcategory: '',
+      category_source: '',
+      reviewed: '',
+      pending_review: '',
+    })
 
     setPagination((prev) => ({
       ...prev,
@@ -362,6 +413,11 @@ function TransactionsPage() {
         month: '',
         type: '',
         source: '',
+        main_category: '',
+        subcategory: '',
+        category_source: '',
+        reviewed: '',
+        pending_review: '',
       })
       setPagination({
         limit: 50,
@@ -554,11 +610,17 @@ function TransactionsPage() {
       }
 
       if (updatedData.similar_updated_count > 0) {
-        setSuccessMessage(
-          `Categoria atualizada. Aplicado em ${updatedData.similar_updated_count} transações semelhantes.`
-        )
+        setSuccessMessage({
+          title: 'Categoria atualizada',
+          description: `Aplicado em ${updatedData.similar_updated_count} transações semelhantes.`,
+          tone: 'success',
+        })
       } else {
-        setSuccessMessage('Categoria atualizada com sucesso.')
+        setSuccessMessage({
+          title: 'Categoria atualizada',
+          description: 'A transação foi atualizada com sucesso.',
+          tone: 'success',
+        })
       }
 
       closeEditModal()
@@ -618,7 +680,11 @@ function TransactionsPage() {
         )
       }
 
-      setSuccessMessage('Transações atualizadas com sucesso.')
+      setSuccessMessage({
+        title: 'Transações atualizadas',
+        description: `${updatedData.updated_count} transação${updatedData.updated_count !== 1 ? 'ões foram' : ' foi'} atualizada${updatedData.updated_count !== 1 ? 's' : ''} com sucesso.`,
+        tone: 'success',
+      })
       closeBulkEditModal()
       setSelectedTransactionIds([])
       await fetchTransactions(false)
@@ -635,6 +701,10 @@ function TransactionsPage() {
     if (!total) return 1
     return Math.ceil(total / pagination.limit)
   }, [total, pagination.limit])
+
+  const activeFiltersCount = useMemo(() => {
+    return Object.values(filters).filter((value) => value !== '').length
+  }, [filters])
 
   if (loading) return <PageLoader />
 
@@ -668,27 +738,31 @@ function TransactionsPage() {
         </header>
 
         <section className="transactions-toolbar-card">
-          <div className="transactions-toolbar-left">
+          <div className="transactions-toolbar-center">
             <button
-              className="filter-button"
-              onClick={() => setShowUpload(!showUpload)}
+              type="button"
+              className={`toolbar-pill-button ${showUpload ? 'is-active' : ''}`}
+              onClick={() => setShowUpload((prev) => !prev)}
             >
               {showUpload ? 'Ocultar importação' : 'Importar arquivos'}
             </button>
 
             <button
-              className="secondary-button"
+              type="button"
+              className={`toolbar-pill-button ${showFilters ? 'is-active' : ''}`}
+              onClick={() => setShowFilters((prev) => !prev)}
+            >
+              {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+            </button>
+
+            <button
+              type="button"
+              className="toolbar-pill-button is-muted"
               onClick={openBulkEditModal}
               disabled={!selectedTransactionIds.length}
             >
               Editar selecionadas ({selectedTransactionIds.length})
             </button>
-          </div>
-
-          <div className="transactions-toolbar-right">
-            <span className="transactions-total-pill">
-              Total encontrado: {total}
-            </span>
           </div>
         </section>
 
@@ -803,64 +877,240 @@ function TransactionsPage() {
           </section>
         )}
 
+
+
+        {showFilters && (
+          <section className="table-container transactions-filters-card">
+            <div className="transactions-section-header transactions-filters-header">
+              <div className="transactions-filters-title-row">
+                <span className="filters-title-line"></span>
+                <h2 className="filters-title-with-icon">
+                  <span className="filters-icon">
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <path
+                        d="M4 6H20"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 11H17"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M10 15H14"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M11.2 18.2C11.2 17.76 11.56 17.4 12 17.4C12.44 17.4 12.8 17.76 12.8 18.2C12.8 18.64 12.44 19 12 19C11.56 19 11.2 18.64 11.2 18.2Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </span>
+                  Filtros
+                </h2>
+                <span className="filters-title-line"></span>
+              </div>
+
+              <p>Refine a listagem sem sair da página</p>
+            </div>
+
+            <div className="filters transactions-filters">
+              <div className="transactions-filters-grid">
+                {/* Mês */}
+                <div className="filter-item">
+                  <label>Mês</label>
+                  <select
+                    value={filters.month}
+                    onChange={(e) => handleFilterChange('month', e.target.value)}
+                  >
+                    <option value="">Todos os meses</option>
+                    {months.map((month) => (
+                      <option key={month} value={month}>
+                        {formatMonthLabel(month)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Tipo */}
+                <div className="filter-item">
+                  <label>Tipo de transação</label>
+                  <select
+                    value={filters.type}
+                    onChange={(e) => handleFilterChange('type', e.target.value)}
+                  >
+                    <option value="">Todos os tipos</option>
+                    {Object.entries(transactionTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Origem */}
+                <div className="filter-item">
+                  <label>Origem</label>
+                  <select
+                    value={filters.source}
+                    onChange={(e) => handleFilterChange('source', e.target.value)}
+                  >
+                    <option value="">Todas as origens</option>
+                    {Object.entries(sourceLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Categoria principal */}
+                <div className="filter-item">
+                  <label>Categoria principal</label>
+                  <select
+                    value={filters.main_category}
+                    onChange={(e) => {
+                      const nextMainCategory = e.target.value
+
+                      setFilters((prev) => ({
+                        ...prev,
+                        main_category: nextMainCategory,
+                        subcategory: '',
+                      }))
+
+                      setPagination((prev) => ({
+                        ...prev,
+                        offset: 0,
+                      }))
+                    }}
+                  >
+                    <option value="">Todas as categorias</option>
+                    {categorySchema.map((category) => (
+                      <option key={category.key} value={category.key}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subcategoria */}
+                <div className="filter-item">
+                  <label>Subcategoria</label>
+                  <select
+                    value={filters.subcategory}
+                    onChange={(e) => handleFilterChange('subcategory', e.target.value)}
+                    disabled={!filters.main_category}
+                  >
+                    <option value="">Todas as subcategorias</option>
+                    {(subcategoryMap[filters.main_category] || []).map((sub) => (
+                      <option key={sub} value={sub}>
+                        {formatCategoryLabel(sub)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Definição */}
+                <div className="filter-item">
+                  <label>Definição</label>
+                  <select
+                    value={filters.category_source}
+                    onChange={(e) => handleFilterChange('category_source', e.target.value)}
+                  >
+                    <option value="">Todas as definições</option>
+                    <option value="manual">Manual</option>
+                    <option value="rule">Auto</option>
+                  </select>
+                </div>
+
+                {/* Revisão */}
+                <div className="filter-item">
+                  <label>Revisão</label>
+                  <select
+                    value={filters.reviewed}
+                    onChange={(e) => handleFilterChange('reviewed', e.target.value)}
+                  >
+                    <option value="">Toda revisão</option>
+                    <option value="1">Revisadas</option>
+                    <option value="0">Não revisadas</option>
+                  </select>
+                </div>
+
+                {/* Pendências */}
+                <div className="filter-item">
+                  <label>Pendências</label>
+                  <select
+                    value={filters.pending_review}
+                    onChange={(e) => handleFilterChange('pending_review', e.target.value)}
+                  >
+                    <option value="">Sem pendências</option>
+                    <option value="1">Pendências de categorização</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="transactions-filters-actions">
+                <button
+                  type="button"
+                  className="secondary-button transactions-clear-filters-button"
+                  onClick={handleClearFilters}
+                  disabled={activeFiltersCount === 0}
+                >
+                  <span className="clear-icon">↻</span>
+                  Limpar filtros
+                </button>
+
+                <div className="transactions-filters-summary">
+                  <span className="info-icon">ⓘ</span>
+                  {activeFiltersCount} filtro{activeFiltersCount !== 1 ? 's' : ''} ativo{activeFiltersCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
         {successMessage && (
-          <div className="success-banner">
-            {successMessage}
+          <div className={`success-banner success-banner-${successMessage.tone || 'success'}`}>
+            <div className="success-banner-content">
+              <div className="success-banner-title-row">
+                <span className="success-inline-icon">✓</span>
+                <strong>{successMessage.title}</strong>
+              </div>
+
+              <span>{successMessage.description}</span>
+            </div>
+
+            <button
+              type="button"
+              className="success-banner-close"
+              onClick={() => setSuccessMessage(null)}
+              aria-label="Fechar aviso"
+            >
+              ✕
+            </button>
           </div>
         )}
 
-        <section className="table-container transactions-filters-card">
-          <div className="transactions-section-header">
-            <div>
-              <h2>Filtros</h2>
-              <p>Refine a listagem sem sair da página</p>
-            </div>
-          </div>
-
-          <div className="filters transactions-filters">
-            <select
-              value={filters.month}
-              onChange={(e) => handleFilterChange('month', e.target.value)}
-            >
-              <option value="">Todos os meses</option>
-              {months.map((month) => (
-                <option key={month} value={month}>
-                  {formatMonthLabel(month)}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.type}
-              onChange={(e) => handleFilterChange('type', e.target.value)}
-            >
-              <option value="">Todos os tipos</option>
-              {Object.entries(transactionTypeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.source}
-              onChange={(e) => handleFilterChange('source', e.target.value)}
-            >
-              <option value="">Todas as origens</option>
-              {Object.entries(sourceLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
-
         <section className="table-container transactions-table-card">
           <div className="transactions-section-header transactions-table-header">
-            <div>
+            <div className="transactions-table-header-left">
               <h2>Lista de transações</h2>
               <p>Edite categorias direto pela tabela</p>
+            </div>
+
+            <div className="transactions-table-header-right">
+              <span className="transactions-total-pill">
+                Total encontrado: {total}
+              </span>
             </div>
           </div>
 
