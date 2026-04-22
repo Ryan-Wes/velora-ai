@@ -83,3 +83,8 @@ def update_transactions_bulk_category(
         display_description=payload.get("display_description"),
         user_note=payload.get("user_note"),
     )
+
+
+@router.post("/transactions/manual")
+def create_manual_transaction(payload: dict = Body(...)):
+    return transaction_service.create_manual_transaction(payload)

@@ -7,6 +7,9 @@ from app.services.category_service import (
 )
 from app.database import get_connection
 
+import uuid
+from datetime import datetime
+
 
 def normalize_category_name(category: str | None) -> str:
     if category is None:
@@ -709,3 +712,103 @@ def bulk_update_transaction_category(
         "updated_count": updated_count,
         "message": f"{updated_count} transações atualizadas com sucesso",
     }
+
+
+def create_manual_transaction(data: dict) -> dict:
+    try:
+        transaction_date = data.get("transaction_date")
+        description = data.get("description")
+        amount = data.get("amount")
+        direction = data.get("direction")
+        transaction_type = data.get("transaction_type")
+        main_category = data.get("main_category")
+        subcategory = data.get("subcategory")
+        source_name = data.get("source_name", "manual")
+        source_type = data.get("source_type", "manual")
+
+        # validações básicas
+        if not transaction_date or not description or amount is None:
+            return {"success": False, "message": "Dados obrigatórios faltando"}
+
+        if direction not in {"in", "out"}:
+            return {"success": False, "message": "Direction inválido"}
+
+        if not main_category or not subcategory:
+            return {"success": False, "message": "Categoria incompleta"}
+
+        if not is_valid_category_selection(main_category, subcategory):
+            return {"success": False, "message": "Categoria inválida"}
+
+        competency_month = transaction_date[:7]
+
+        absolute_amount = abs(amount)
+
+        normalized_description = normalize_display_description(
+            raw_description=description,
+            display_description=description,
+            transaction_type=transaction_type,
+        )
+
+        transaction_hash = str(uuid.uuid4())
+
+        with get_connection() as connection:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO transactions (
+                    import_id,
+                    transaction_date,
+                    competency_month,
+                    raw_description,
+                    normalized_description,
+                    amount,
+                    absolute_amount,
+                    direction,
+                    transaction_type,
+                    main_category,
+                    subcategory,
+                    display_description,
+                    category_source,
+                    category_reviewed,
+                    source_name,
+                    source_type,
+                    file_format,
+                    is_ignored_in_spending,
+                    is_internal_transfer,
+                    transaction_hash,
+                    entry_mode
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    0,  # manual não tem import
+                    transaction_date,
+                    competency_month,
+                    description,
+                    normalized_description,
+                    amount,
+                    absolute_amount,
+                    direction,
+                    transaction_type,
+                    main_category,
+                    subcategory,
+                    description,
+                    "manual",
+                    1,
+                    source_name,
+                    source_type,
+                    "manual",
+                    0,
+                    0,
+                    transaction_hash,
+                    "manual",
+                ),
+            )
+
+            connection.commit()
+
+        return {"success": True}
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}
