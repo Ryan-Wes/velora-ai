@@ -17,11 +17,13 @@ def get_summary():
 @router.get("/summary/consolidated")
 def get_consolidated_summary(
     month: Optional[str] = Query(None),
+    year: Optional[str] = Query(None),
     type: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
 ):
     return consolidate_transactions(
         month=month,
+        year=year,
         transaction_type=type,
         source=source,
     )

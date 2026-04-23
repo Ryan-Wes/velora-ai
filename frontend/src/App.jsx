@@ -98,16 +98,22 @@ function App() {
   const [monthlyTrend, setMonthlyTrend] = useState([])
   const [categorySchema, setCategorySchema] = useState([])
 
-  const insights = generateInsights({
-    summary,
-    byCategory,
-    transactions,
-  })
-
   const [filters, setFilters] = useState({
     year: '',
     month: '',
   })
+
+  const isYearView = !filters.month
+
+  const insights = generateInsights({
+    summary,
+    byCategory,
+    transactions,
+    isYearView,
+  })
+
+
+
 
   const schemaColorMap = categorySchema.reduce((accumulator, item) => {
     accumulator[item.key] = item.color
@@ -222,7 +228,11 @@ function App() {
 
         const queryParams = new URLSearchParams()
 
-        if (filters.month) queryParams.append('month', filters.month)
+        if (filters.month) {
+          queryParams.append('month', filters.month)
+        } else if (filters.year) {
+          queryParams.append('year', filters.year)
+        }
         queryParams.append('limit', 100)
 
         const queryString = queryParams.toString()
@@ -430,6 +440,9 @@ function App() {
   if (loading) return <PageLoader />
   if (error) return <h1>{error}</h1>
 
+
+
+
   return (
     <main>
       <div className="container">
@@ -502,7 +515,7 @@ function App() {
             <section className="summary-grid section-spacing">
               <div className="card kpi-card kpi-income">
                 <div className="kpi-card-content">
-                  <p>Entrada do mês</p>
+                  <p>{isYearView ? 'Entrada anual' : 'Entrada do mês'}</p>
                   <h2 style={{ color: 'var(--color-positive)' }}>
                     R$ {monthlyIncome.toFixed(2)}
                   </h2>
@@ -512,7 +525,7 @@ function App() {
 
               <div className="card kpi-card kpi-expenses">
                 <div className="kpi-card-content">
-                  <p>Saída do mês</p>
+                  <p>{isYearView ? 'Saída do anual' : 'Saída do mês'}</p>
                   <h2 style={{ color: 'var(--color-negative)' }}>
                     R$ {monthlyExpenses.toFixed(2)}
                   </h2>
@@ -522,7 +535,7 @@ function App() {
 
               <div className="card kpi-card kpi-balance">
                 <div className="kpi-card-content">
-                  <p>Saldo do mês</p>
+                  <p>{isYearView ? 'Saldo anual' : 'Saldo do mês'}</p>
                   <h2
                     style={{
                       color:
@@ -554,7 +567,7 @@ function App() {
               </div>
 
               <div className="table-container donut-card">
-                <h2>Despesas no mês</h2>
+                <p>{isYearView ? 'Despesas anual' : 'Despesas do mês'}</p>
 
                 <div className="donut-content">
                   < div className="donut-chart-wrapper">
@@ -634,7 +647,7 @@ function App() {
 
             <section className="analytics-grid">
               <div className="table-container analytics-main-card">
-                <h2>Análise mensal</h2>
+                <h2>{isYearView ? 'Análise anual' : 'Análise mensal'}</h2>
 
                 <div style={{ width: '100%', height: 280 }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -707,7 +720,8 @@ function App() {
               </div>
 
               <div className="table-container analytics-side-card">
-                <h2>Top gastos</h2>
+                <h2>{isYearView ? 'Top gastos anual' : 'Top gastos mensal'}</h2>
+
 
                 <div style={{ width: '100%', height: 280 }}>
                   <ResponsiveContainer width="100%" height="100%">

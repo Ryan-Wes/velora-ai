@@ -166,6 +166,7 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
 
 def list_transactions(
     month: str | None = None,
+    year: str | None = None,
     transaction_type: str | None = None,
     source: str | None = None,
     main_category: str | None = None,
@@ -188,8 +189,12 @@ def list_transactions(
         params = []
 
         if month:
-            base_query += " AND substr(transaction_date, 1, 7) = ?"
+            base_query += " AND competency_month = ?"
             params.append(month)
+
+        elif year:
+            base_query += " AND substr(competency_month, 1, 4) = ?"
+            params.append(year)
 
         if transaction_type:
             base_query += " AND transaction_type = ?"
@@ -342,7 +347,7 @@ def get_available_months():
 
     cursor.execute(
         """
-        SELECT DISTINCT substr(transaction_date, 1, 7) as month
+        SELECT DISTINCT substr(competency_month, 1, 7) as month
         FROM transactions
         ORDER BY month DESC
         """

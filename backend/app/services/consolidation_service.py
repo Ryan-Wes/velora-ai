@@ -23,11 +23,13 @@ def is_real_expense_transaction(transaction: dict) -> bool:
 
 def consolidate_transactions(
     month: str | None = None,
+    year: str | None = None,
     transaction_type: str | None = None,
     source: str | None = None,
 ) -> dict:
     transactions_data = list_transactions(
         month=month,
+        year=year,
         transaction_type=transaction_type,
         source=source,
         limit=100000,
