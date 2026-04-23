@@ -89,45 +89,57 @@ function App() {
   }
 
   function formatCurrency(value) {
-  return Number(value || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
+    return Number(value || 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    })
+  }
+
+  function formatCompactCurrency(value) {
+    return Number(value || 0).toLocaleString('pt-BR', {
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1,
+    }).replace('mil', ' mil').replace('mi', ' mi')
+  }
+
+function formatAxisCurrency(value) {
+  const number = Number(value || 0)
+
+  if (number >= 1000) {
+    const formatted = (number / 1000).toLocaleString('pt-BR', {
+      maximumFractionDigits: 1,
+    })
+
+    return `R$\u00A0${formatted}\u00A0mil`
+  }
+
+  return `R$\u00A0${number.toLocaleString('pt-BR')}`
 }
 
-function formatCompactCurrency(value) {
-  return Number(value || 0).toLocaleString('pt-BR', {
-    notation: 'compact',
-    compactDisplay: 'short',
-    maximumFractionDigits: 1,
-    style: 'currency',
-    currency: 'BRL',
+
+  const [transactions, setTransactions] = useState([])
+  const [summary, setSummary] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [months, setMonths] = useState([])
+  const [byCategory, setByCategory] = useState([])
+  const [monthlyTrend, setMonthlyTrend] = useState([])
+  const [categorySchema, setCategorySchema] = useState([])
+
+  const [filters, setFilters] = useState({
+    year: '',
+    month: '',
   })
-}
 
+  const isYearView = !filters.month
 
- const [transactions, setTransactions] = useState([])
-const [summary, setSummary] = useState(null)
-const [loading, setLoading] = useState(true)
-const [error, setError] = useState('')
-const [months, setMonths] = useState([])
-const [byCategory, setByCategory] = useState([])
-const [monthlyTrend, setMonthlyTrend] = useState([])
-const [categorySchema, setCategorySchema] = useState([])
-
-const [filters, setFilters] = useState({
-  year: '',
-  month: '',
-})
-
-const isYearView = !filters.month
-
-const insights = generateInsights({
-  summary,
-  byCategory,
-  transactions,
-  isYearView,
-})
+  const insights = generateInsights({
+    summary,
+    byCategory,
+    transactions,
+    isYearView,
+  })
 
 
 
@@ -585,12 +597,12 @@ const insights = generateInsights({
                   <div className="reserve-strip-values">
                     <strong>{formatCurrency(Math.abs(reserveNet))}</strong>
                     <span>
-  {reserveNet > 0
-    ? `${reserveDependency.toFixed(1)}% das saídas do ${isYearView ? 'ano' : 'mês'}`
-    : reserveNet < 0
-    ? `Você aumentou sua reserva neste ${isYearView ? 'ano' : 'mês'}`
-    : `Sem impacto na reserva`}
-</span>
+                      {reserveNet > 0
+                        ? `${reserveDependency.toFixed(1)}% das saídas do ${isYearView ? 'ano' : 'mês'}`
+                        : reserveNet < 0
+                          ? `Você aumentou sua reserva neste ${isYearView ? 'ano' : 'mês'}`
+                          : `Sem impacto na reserva`}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -701,9 +713,16 @@ const insights = generateInsights({
                         stroke="rgba(228, 228, 231, 0.35)"
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => formatCompactCurrency(value)}
-                        width={55}
+                        tickFormatter={(value) =>
+                          formatAxisCurrency(value).replace(' ', '\u00A0')
+                        }
+                        width={75}
                         ticks={[0, 5000, 10000, 15000, 20000, 25000]}
+                        tick={{
+                          fill: '#a1a1aa',
+                          fontSize: 15,
+                          whiteSpace: 'nowrap',
+                        }}
                       />
                       <Tooltip
                         cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
@@ -721,11 +740,13 @@ const insights = generateInsights({
                         verticalAlign="top"
                         align="left"
                         iconType="square"
+                        formatter={(value) => (
+                          <span style={{ color: '#f4f4f5' }}>{value}</span>
+                        )}
                         wrapperStyle={{
-                          top: -10,
+                          top: 10,
                           left: 10,
                           fontSize: '13px',
-                          color: '#a1a1aa',
                         }}
                       />
                       <Bar
@@ -771,7 +792,7 @@ const insights = generateInsights({
                         tickLine={false}
                         axisLine={false}
                         domain={[0, 'dataMax + 250']}
-                        tickFormatter={(value) => formatCompactCurrency(value)}
+                        tickFormatter={(value) => `R$ ${formatCompactCurrency(value)}`}
                       />
                       <YAxis
                         dataKey="name"
