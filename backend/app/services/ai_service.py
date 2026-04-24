@@ -5,7 +5,9 @@ import re
 from openai import OpenAI
 from app.database import get_connection
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+
+client = OpenAI(api_key=api_key) if api_key else None
 
 
 def get_category_catalog():
@@ -43,6 +45,14 @@ def get_category_catalog():
 
 def suggest_category(description: str):
     catalog = get_category_catalog()
+
+    if client is None:
+        return {
+            "category_key": None,
+            "subcategory_key": None,
+            "confidence": "Baixa",
+            "reason": "IA não configurada"
+        }
 
     prompt = f"""
 Você é um assistente de categorização financeira.
