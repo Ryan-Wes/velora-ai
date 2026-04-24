@@ -22,7 +22,7 @@ from app.routes.categories import router as categories_router
 from app.routes import ai
 
 
-app = FastAPI(title="FinSight AI API")
+app = FastAPI(title="Velora AI API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,7 +43,7 @@ def on_startup() -> None:
 
 @app.get("/")
 def read_root():
-    return {"message": "FinSight AI API is running"}
+    return {"message": "Velora AI API is running"}
 
 
 app.include_router(health_router, prefix="/api")
