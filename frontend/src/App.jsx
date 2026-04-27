@@ -3,6 +3,9 @@ import PageLoader from './components/PageLoader'
 import { generateInsights } from './utils/insights'
 import logo from './assets/logo-full.png'
 
+import { supabase } from './lib/supabaseClient'
+import { useNavigate } from 'react-router-dom'
+
 import {
   BarChart,
   Bar,
@@ -136,6 +139,9 @@ function App() {
     month: '',
   })
 
+  const [authLoading, setAuthLoading] = useState(true)
+  const navigate = useNavigate()
+
   const isYearView = !filters.month
 
   const insights = generateInsights({
@@ -252,6 +258,20 @@ function App() {
     highlight: '💳',
     info: '📊'
   }
+
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession()
+
+      if (!data.session) {
+        navigate('/auth')
+      }
+
+      setAuthLoading(false)
+    }
+
+    checkSession()
+  }, [navigate])
 
   useEffect(() => {
     async function fetchData() {
@@ -591,7 +611,7 @@ function App() {
     )
   }
 
-
+if (authLoading) return <PageLoader />
   if (loading) return <PageLoader />
   if (error) return <h1>{error}</h1>
 
