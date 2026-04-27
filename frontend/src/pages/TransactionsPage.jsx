@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { getCategoryDisplayColor } from '../utils/categoryStyle'
 import PageLoader from '../components/PageLoader'
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+
 
 
 const FALLBACK_SUBCATEGORY_MAP = {
@@ -182,7 +185,7 @@ function TransactionsPage() {
   useEffect(() => {
     async function fetchMonths() {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/transactions/months')
+        const response = await fetch(`${API_BASE_URL}/api/transactions/months`)
 
         if (!response.ok) {
           throw new Error('Erro ao buscar meses disponíveis')
@@ -200,7 +203,7 @@ function TransactionsPage() {
 
 
   async function reloadCategorySchema() {
-    const response = await fetch('http://127.0.0.1:8000/api/categories/schema')
+    const response = await fetch(`${API_BASE_URL}/api/categories/schema`)
 
     if (!response.ok) {
       throw new Error('Erro ao atualizar categorias')
@@ -233,7 +236,7 @@ function TransactionsPage() {
       setCreatingCategory(true)
       setFormError('')
 
-      const response = await fetch('http://127.0.0.1:8000/api/categories', {
+      const response = await fetch(`${API_BASE_URL}/api/categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,6 +265,8 @@ function TransactionsPage() {
       setNewCategoryColor('#a78bfa')
       setShowCreateCategory(false)
       setShowCreateSubcategory(true)
+
+    } catch (err) {
       setFormError(err.message || 'Erro ao criar categoria')
     } finally {
       setCreatingCategory(false)
@@ -284,7 +289,7 @@ function TransactionsPage() {
       setFormError('')
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/categories/${mainCategory}/subcategories`,
+        `${API_BASE_URL}/api/categories/${mainCategory}/subcategories`,
         {
           method: 'POST',
           headers: {
@@ -378,7 +383,7 @@ function TransactionsPage() {
       queryParams.append('offset', String(pagination.offset))
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/transactions?${queryParams.toString()}`
+        `${API_BASE_URL}/api/transactions?${queryParams.toString()}`
       )
 
       if (!response.ok) {
@@ -460,7 +465,7 @@ function TransactionsPage() {
         formData.append('files', file)
       })
 
-      const response = await fetch('http://127.0.0.1:8000/api/upload', {
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         body: formData,
       })
@@ -475,7 +480,7 @@ function TransactionsPage() {
       setUploadResults(data.results || [])
       setSelectedFiles([])
 
-      const monthsResponse = await fetch('http://127.0.0.1:8000/api/transactions/months')
+      const monthsResponse = await fetch(`${API_BASE_URL}/api/transactions/months`)
 
       if (monthsResponse.ok) {
         const monthsData = await monthsResponse.json()
@@ -567,7 +572,7 @@ function TransactionsPage() {
       setError('')
       setUploadResults([])
 
-      const response = await fetch('http://127.0.0.1:8000/api/dev/reset', {
+      const response = await fetch(`${API_BASE_URL}/api/dev/reset`, {
         method: 'DELETE',
       })
 
@@ -759,7 +764,7 @@ function TransactionsPage() {
         direction === 'out' ? -Math.abs(numericAmount) : Math.abs(numericAmount)
 
       const response = await fetch(
-        'http://127.0.0.1:8000/api/transactions/manual',
+        `${API_BASE_URL}/api/transactions/manual`,
         {
           method: 'POST',
           headers: {
@@ -798,7 +803,7 @@ function TransactionsPage() {
       closeCreateManualModal()
       await fetchTransactions(false)
 
-      const monthsResponse = await fetch('http://127.0.0.1:8000/api/transactions/months')
+      const monthsResponse = await fetch(`${API_BASE_URL}/api/transactions/months`)
 
       if (monthsResponse.ok) {
         const monthsData = await monthsResponse.json()
@@ -821,7 +826,7 @@ function TransactionsPage() {
       setLoadingSimilarPreview(true)
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/transactions/${transactionId}/similar-preview`
+        `${API_BASE_URL}/api/transactions/${transactionId}/similar-preview`
       )
 
       if (!response.ok) {
@@ -849,7 +854,7 @@ function TransactionsPage() {
       setAiSuggestion(null)
 
       const response = await fetch(
-        'http://127.0.0.1:8000/api/ai/suggest-category',
+        `${API_BASE_URL}/api/ai/suggest-category`,
         {
           method: 'POST',
           headers: {
@@ -981,7 +986,7 @@ function TransactionsPage() {
       setFormError('')
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/transactions/${selectedTransaction.id}/category`,
+        `${API_BASE_URL}/api/transactions/${selectedTransaction.id}/category`,
         {
           method: 'PATCH',
           headers: {
@@ -1051,7 +1056,7 @@ function TransactionsPage() {
       setFormError('')
 
       const response = await fetch(
-        'http://127.0.0.1:8000/api/transactions/bulk-category',
+        `${API_BASE_URL}/api/transactions/bulk-category`,
         {
           method: 'PATCH',
           headers: {

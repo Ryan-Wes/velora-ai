@@ -79,6 +79,8 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
     with get_connection() as connection:
         cursor = connection.cursor()
 
+        user_id = "default_user"
+
         for transaction in transactions:
             try:
                 normalized_category = normalize_category_name(transaction.get("category"))
@@ -91,6 +93,7 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
                 cursor.execute(
                     """
                     INSERT INTO transactions (
+                        user_id,
                         import_id,
                         transaction_date,
                         competency_month,
@@ -115,9 +118,10 @@ def save_transactions(import_id: int, transactions: list[dict]) -> dict:
                         installment_total,
                         transaction_hash
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
+                        user_id,
                         import_id,
                         transaction["transaction_date"],
                         transaction["competency_month"],
@@ -181,12 +185,15 @@ def list_transactions(
     with get_connection() as connection:
         cursor = connection.cursor()
 
+        user_id = "default_user"
+        
+
         base_query = """
             FROM transactions
-            WHERE 1=1
+            WHERE user_id = ?
         """
 
-        params = []
+        params = [user_id]
 
         if month:
             base_query += " AND competency_month = ?"
@@ -294,6 +301,8 @@ def get_transactions_summary() -> dict:
     with get_connection() as connection:
         cursor = connection.cursor()
 
+        user_id = "default_user"
+
         cursor.execute(
             """
             SELECT
@@ -309,7 +318,9 @@ def get_transactions_summary() -> dict:
                 COALESCE(SUM(CASE WHEN direction = 'out' THEN 1 ELSE 0 END), 0) AS expense_count,
                 COALESCE(SUM(CASE WHEN is_ignored_in_spending = 1 THEN 1 ELSE 0 END), 0) AS ignored_count
             FROM transactions
-            """
+            WHERE user_id = ?
+            """,
+            (user_id,),
         )
 
         summary_row = dict(cursor.fetchone())
@@ -322,9 +333,11 @@ def get_transactions_summary() -> dict:
                 COALESCE(SUM(amount), 0) AS net_amount,
                 COALESCE(SUM(absolute_amount), 0) AS absolute_total
             FROM transactions
+            WHERE user_id = ?
             GROUP BY transaction_type
             ORDER BY absolute_total DESC, count DESC, transaction_type ASC
-            """
+            """,
+            (user_id,),
         )
 
         by_type_rows = [dict(row) for row in cursor.fetchall()]
@@ -345,12 +358,16 @@ def get_available_months():
     conn = get_connection()
     cursor = conn.cursor()
 
+    user_id = "default_user"
+
     cursor.execute(
         """
         SELECT DISTINCT substr(competency_month, 1, 7) as month
         FROM transactions
+        WHERE user_id = ?
         ORDER BY month DESC
-        """
+        """,
+        (user_id,)
     )
 
     months = [row[0] for row in cursor.fetchall()]
@@ -362,15 +379,18 @@ def get_available_months():
 def get_available_categories() -> list[str]:
     with get_connection() as connection:
         cursor = connection.cursor()
-
+        
+        user_id = "default_user"
         cursor.execute(
             """
             SELECT DISTINCT category
             FROM transactions
-            WHERE category IS NOT NULL
-              AND TRIM(category) != ''
+            WHERE user_id = ?
+            AND category IS NOT NULL
+            AND TRIM(category) != ''
             ORDER BY category COLLATE NOCASE ASC
-            """
+            """,
+            (user_id,)
         )
 
         raw_categories = [row["category"] for row in cursor.fetchall()]
@@ -393,6 +413,8 @@ def update_transaction_category(
     user_note: str | None = None,
     apply_to_similar: bool = False,
 ) -> dict:
+    user_id = "default_user"
+
     normalized_category = normalize_category_name(category) if category else None
 
     with get_connection() as connection:
@@ -403,8 +425,9 @@ def update_transaction_category(
             SELECT id, normalized_description
             FROM transactions
             WHERE id = ?
+              AND user_id = ?
             """,
-            (transaction_id,),
+            (transaction_id, user_id),
         )
         base_transaction = cursor.fetchone()
 
@@ -455,7 +478,6 @@ def update_transaction_category(
                     "message": "Combinação de categoria e subcategoria inválida",
                 }
 
-
         if normalized_category:
             fields.append("category = ?")
             values.append(normalized_category)
@@ -493,9 +515,10 @@ def update_transaction_category(
             UPDATE transactions
             SET {', '.join(fields)}
             WHERE id = ?
+              AND user_id = ?
         """
 
-        values_for_current_transaction = [*values, transaction_id]
+        values_for_current_transaction = [*values, transaction_id, user_id]
         cursor.execute(query, values_for_current_transaction)
         connection.commit()
 
@@ -513,9 +536,15 @@ def update_transaction_category(
                 SET {', '.join(fields)}
                 WHERE normalized_description = ?
                   AND id != ?
+                  AND user_id = ?
             """
 
-            similar_values = [*values, base_normalized_description, transaction_id]
+            similar_values = [
+                *values,
+                base_normalized_description,
+                transaction_id,
+                user_id,
+            ]
             cursor.execute(similar_query, similar_values)
             similar_updated_count = cursor.rowcount
             connection.commit()
@@ -532,8 +561,9 @@ def update_transaction_category(
                 category_reviewed
             FROM transactions
             WHERE id = ?
+              AND user_id = ?
             """,
-            (transaction_id,),
+            (transaction_id, user_id),
         )
         updated_row = dict(cursor.fetchone())
 
@@ -554,6 +584,8 @@ def update_transaction_category(
 
 
 def get_similar_transactions_preview(transaction_id: int) -> dict:
+    user_id = "default_user"
+
     with get_connection() as connection:
         cursor = connection.cursor()
 
@@ -562,8 +594,9 @@ def get_similar_transactions_preview(transaction_id: int) -> dict:
             SELECT id, normalized_description
             FROM transactions
             WHERE id = ?
+              AND user_id = ?
             """,
-            (transaction_id,),
+            (transaction_id, user_id),
         )
         base_transaction = cursor.fetchone()
 
@@ -591,8 +624,9 @@ def get_similar_transactions_preview(transaction_id: int) -> dict:
             FROM transactions
             WHERE normalized_description = ?
               AND id != ?
+              AND user_id = ?
             """,
-            (base_normalized_description, transaction_id),
+            (base_normalized_description, transaction_id, user_id),
         )
         row = cursor.fetchone()
         similar_count = row["total"] if row else 0
@@ -612,6 +646,8 @@ def bulk_update_transaction_category(
     display_description: str | None = None,
     user_note: str | None = None,
 ) -> dict:
+    user_id = "default_user"
+
     if not transaction_ids:
         return {
             "success": False,
@@ -697,15 +733,14 @@ def bulk_update_transaction_category(
             if not fields:
                 continue
 
-            values.append(transaction_id)
-
             query = f"""
                 UPDATE transactions
                 SET {", ".join(fields)}
                 WHERE id = ?
+                  AND user_id = ?
             """
 
-            cursor.execute(query, values)
+            cursor.execute(query, [*values, transaction_id, user_id])
 
             if cursor.rowcount > 0:
                 updated_count += 1
@@ -768,6 +803,7 @@ def create_manual_transaction(data: dict) -> dict:
             cursor.execute(
                 """
                 INSERT INTO transactions (
+                    user_id,
                     import_id,
                     transaction_date,
                     competency_month,
@@ -790,9 +826,10 @@ def create_manual_transaction(data: dict) -> dict:
                     transaction_hash,
                     entry_mode
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    "default_user",
                     0,  # import_id
                     transaction_date,
                     competency_month,

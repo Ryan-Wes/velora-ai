@@ -16,8 +16,10 @@ import {
   CartesianGrid,
   Legend,
   LabelList,
-
 } from 'recharts'
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
 
 function Typewriter({ text, speed = 18, delay = 0 }) {
@@ -269,7 +271,7 @@ function App() {
         const queryString = queryParams.toString()
 
         const monthsResponse = await fetch(
-          'http://127.0.0.1:8000/api/transactions/months'
+          `${API_BASE_URL}/api/transactions/months`
         )
 
         if (!monthsResponse.ok) {
@@ -287,13 +289,13 @@ function App() {
           categorySchemaResponse,
           dailyTrendResponse,
         ] = await Promise.all([
-          fetch(`http://127.0.0.1:8000/api/transactions?${queryString}`),
-          fetch(`http://127.0.0.1:8000/api/summary/consolidated?${queryString}`),
-          fetch(`http://127.0.0.1:8000/api/summary/by-category?${queryString}`),
-          fetch('http://127.0.0.1:8000/api/summary/monthly-trend'),
-          fetch('http://127.0.0.1:8000/api/categories/schema'),
+          fetch(`${API_BASE_URL}/api/transactions?${queryString}`),
+          fetch(`${API_BASE_URL}/api/summary/consolidated?${queryString}`),
+          fetch(`${API_BASE_URL}/api/summary/by-category?${queryString}`),
+          fetch(`${API_BASE_URL}/api/summary/monthly-trend`),
+          fetch(`${API_BASE_URL}/api/categories/schema`),
           filters.month
-            ? fetch(`http://127.0.0.1:8000/api/daily-trend?month=${filters.month}`)
+            ? fetch(`${API_BASE_URL}/api/daily-trend?month=${filters.month}`)
             : Promise.resolve({
               ok: true,
               json: async () => ({ daily_trend: [] }),

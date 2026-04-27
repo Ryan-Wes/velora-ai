@@ -95,6 +95,7 @@ def create_tables() -> None:
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS transactions (
+                user_id TEXT DEFAULT 'default_user',
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 import_id INTEGER NOT NULL,
                 transaction_date TEXT NOT NULL,
