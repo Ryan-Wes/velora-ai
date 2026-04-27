@@ -1,12 +1,15 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import logo from '../assets/logo-full.png'
 
 function AuthPage() {
+  const navigate = useNavigate()
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -35,6 +38,11 @@ function AuthPage() {
 
       if (isLogin) {
         setMessage('Login realizado com sucesso.')
+        setRedirecting(true)
+
+        setTimeout(() => {
+          navigate('/')
+        }, 2900)
       } else {
         setMessage('Cadastro criado. Verifique seu e-mail, se a confirmação estiver ativa.')
       }
@@ -46,97 +54,89 @@ function AuthPage() {
   }
 
   return (
-    <main>
-      <div className="container">
-        <section
-          className="table-container"
-          style={{
-            maxWidth: 460,
-            margin: '80px auto',
-            padding: 32,
-          }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <img
-              src={logo}
-              alt="Velora AI"
-              style={{
-                width: 180,
-                maxWidth: '100%',
-                marginBottom: 16,
-              }}
-            />
+    <main className="auth-page">
 
-            <h1>{isLogin ? 'Entrar na Velora AI' : 'Criar conta'}</h1>
-
-            <p style={{ color: '#a1a1aa', marginTop: 8 }}>
-              Clareza financeira com inteligência artificial.
-            </p>
+      {redirecting && (
+        <div className="auth-transition">
+          <div className="auth-transition-card">
+            <img src={logo} alt="Velora AI" />
+            <span>Preparando seu dashboard...</span>
           </div>
+        </div>
+      )}
 
-          <form onSubmit={handleSubmit}>
-            <label className="modal-label">E-mail</label>
-            <input
-              className="modal-input"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="seu@email.com"
-              required
-            />
+      <div className="auth-layout">
 
-            <label className="modal-label">Senha</label>
-            <input
-              className="modal-input"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              required
-              minLength={6}
-            />
+        {/* LADO ESQUERDO */}
+        <div className="auth-left">
+          <img src={logo} alt="Velora AI" className="auth-logo" />
 
-            {error && (
-              <p className="form-error-message">
-                {error}
-              </p>
-            )}
+          <p className="auth-tagline">
+            Clareza financeira com inteligência artificial.
+          </p>
 
-            {message && (
-              <p style={{ color: '#22c55e', marginTop: 12 }}>
-                {message}
-              </p>
-            )}
+          <div className="auth-benefits">
+            <p>📊 Visualize seus gastos</p>
+            <p>📂 Importe suas faturas</p>
+            <p>🤖 Receba sugestões com IA</p>
+          </div>
+        </div>
+
+        {/* LADO DIREITO */}
+        <div className="auth-right">
+          <div className="auth-card">
+
+            <h2>{isLogin ? 'Entrar' : 'Criar conta'}</h2>
+
+            <form onSubmit={handleSubmit}>
+              <label>E-mail</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu@email.com"
+                required
+              />
+
+              <label>Senha</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                required
+                minLength={6}
+              />
+
+              {error && <p className="auth-error">{error}</p>}
+              {message && <p className="auth-success">{message}</p>}
+
+              <button type="submit" disabled={loading}>
+                {loading
+                  ? 'Processando...'
+                  : isLogin
+                    ? 'Entrar'
+                    : 'Criar conta'}
+              </button>
+            </form>
 
             <button
-              type="submit"
-              className="filter-button"
-              disabled={loading}
-              style={{ width: '100%', marginTop: 18 }}
+              type="button"
+              className="auth-switch"
+              onClick={() => {
+                setMode(isLogin ? 'register' : 'login')
+                setError('')
+                setMessage('')
+              }}
             >
-              {loading
-                ? 'Processando...'
-                : isLogin
-                  ? 'Entrar'
-                  : 'Criar conta'}
+              {isLogin
+                ? 'Ainda não tenho conta'
+                : 'Já tenho conta'}
             </button>
-          </form>
 
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              setMode(isLogin ? 'register' : 'login')
-              setError('')
-              setMessage('')
-            }}
-            style={{ width: '100%', marginTop: 14 }}
-          >
-            {isLogin
-              ? 'Ainda não tenho conta'
-              : 'Já tenho conta'}
-          </button>
-        </section>
+          </div>
+        </div>
+
       </div>
     </main>
   )
