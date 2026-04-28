@@ -36,6 +36,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "https://velora-ai.vercel.app",
         "https://velora-ai-xi.vercel.app",
+        "https://velora-ai-finance.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
