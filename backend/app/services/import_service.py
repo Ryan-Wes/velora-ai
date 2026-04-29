@@ -2,6 +2,7 @@ from app.database import get_connection
 
 
 def create_import(
+    user_id: str,
     filename: str,
     file_hash: str,
     source_name: str,
@@ -20,6 +21,7 @@ def create_import(
         cursor.execute(
             """
             INSERT INTO imports (
+                user_id,
                 filename,
                 file_hash,
                 source_name,
@@ -32,9 +34,10 @@ def create_import(
                 import_status,
                 warning_message
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                user_id,
                 filename,
                 file_hash,
                 source_name,

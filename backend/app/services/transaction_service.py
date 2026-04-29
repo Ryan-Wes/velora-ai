@@ -298,11 +298,10 @@ def list_transactions(
         }
 
 
-def get_transactions_summary() -> dict:
+def get_transactions_summary(user_id: str) -> dict:
     with get_connection() as connection:
         cursor = connection.cursor()
 
-        user_id = "default_user"
 
         cursor.execute(
             """
@@ -375,11 +374,10 @@ def get_available_months(user_id: str) -> list[str]:
     return months
 
 
-def get_available_categories() -> list[str]:
+def get_available_categories(user_id: str) -> list[str]:
     with get_connection() as connection:
         cursor = connection.cursor()
         
-        user_id = "default_user"
         cursor.execute(
             """
             SELECT DISTINCT category
@@ -405,6 +403,7 @@ def get_available_categories() -> list[str]:
 
 def update_transaction_category(
     transaction_id: int,
+    user_id: str,
     category: str | None = None,
     main_category: str | None = None,
     subcategory: str | None = None,
@@ -412,7 +411,6 @@ def update_transaction_category(
     user_note: str | None = None,
     apply_to_similar: bool = False,
 ) -> dict:
-    user_id = "default_user"
 
     normalized_category = normalize_category_name(category) if category else None
 
@@ -423,8 +421,7 @@ def update_transaction_category(
             """
             SELECT id, normalized_description
             FROM transactions
-            WHERE id = ?
-              AND user_id = ?
+            WHERE id = ? AND user_id = ?
             """,
             (transaction_id, user_id),
         )
@@ -582,8 +579,7 @@ def update_transaction_category(
     }
 
 
-def get_similar_transactions_preview(transaction_id: int) -> dict:
-    user_id = "default_user"
+def get_similar_transactions_preview(transaction_id: int, user_id: str) -> dict:
 
     with get_connection() as connection:
         cursor = connection.cursor()
@@ -639,13 +635,13 @@ def get_similar_transactions_preview(transaction_id: int) -> dict:
 
 def bulk_update_transaction_category(
     transaction_ids: list[int],
+    user_id: str,
     category: str | None = None,
     main_category: str | None = None,
     subcategory: str | None = None,
     display_description: str | None = None,
     user_note: str | None = None,
 ) -> dict:
-    user_id = "default_user"
 
     if not transaction_ids:
         return {
@@ -753,7 +749,7 @@ def bulk_update_transaction_category(
     }
 
 
-def create_manual_transaction(data: dict) -> dict:
+def create_manual_transaction(data: dict, user_id: str) -> dict:
     try:
         transaction_date = data.get("transaction_date")
         description = data.get("description")
@@ -828,7 +824,7 @@ def create_manual_transaction(data: dict) -> dict:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    "default_user",
+                    user_id,
                     0,  # import_id
                     transaction_date,
                     competency_month,

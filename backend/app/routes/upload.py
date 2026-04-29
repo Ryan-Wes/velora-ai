@@ -127,6 +127,7 @@ async def upload_file(
             # CREATE IMPORT
             try:
                 import_id = create_import(
+                    user_id=user_id,
                     filename=saved_filename,
                     file_hash=file_hash,
                     source_name=source_name,

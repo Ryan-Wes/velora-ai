@@ -50,8 +50,10 @@ def get_available_months(
 
 
 @router.get("/transactions/categories")
-def get_available_categories():
-    categories = transaction_service.get_available_categories()
+def get_available_categories(
+    user_id: str = Depends(get_current_user_id),
+):
+    categories = transaction_service.get_available_categories(user_id=user_id)
     return {"categories": categories}
 
 
@@ -59,9 +61,11 @@ def get_available_categories():
 def update_transaction_category(
     transaction_id: int,
     payload: dict = Body(...),
+    user_id: str = Depends(get_current_user_id),
 ):
     return transaction_service.update_transaction_category(
         transaction_id=transaction_id,
+        user_id=user_id,
         category=payload.get("category"),
         main_category=payload.get("main_category"),
         subcategory=payload.get("subcategory"),
@@ -72,18 +76,24 @@ def update_transaction_category(
 
 
 @router.get("/transactions/{transaction_id}/similar-preview")
-def get_similar_transactions_preview(transaction_id: int):
+def get_similar_transactions_preview(
+    transaction_id: int,
+    user_id: str = Depends(get_current_user_id),
+):
     return transaction_service.get_similar_transactions_preview(
         transaction_id=transaction_id,
-    )
+        user_id=user_id,
+)
 
 
 @router.patch("/transactions/bulk-category")
 def update_transactions_bulk_category(
     payload: dict = Body(...),
+    user_id: str = Depends(get_current_user_id),
 ):
     return transaction_service.bulk_update_transaction_category(
         transaction_ids=payload.get("transaction_ids", []),
+        user_id=user_id,
         category=payload.get("category"),
         main_category=payload.get("main_category"),
         subcategory=payload.get("subcategory"),
@@ -93,5 +103,11 @@ def update_transactions_bulk_category(
 
 
 @router.post("/transactions/manual")
-def create_manual_transaction(payload: dict = Body(...)):
-    return transaction_service.create_manual_transaction(payload)
+def create_manual_transaction(
+    payload: dict = Body(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    return transaction_service.create_manual_transaction(
+        payload,
+        user_id=user_id,
+    )
