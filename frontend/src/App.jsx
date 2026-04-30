@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PageLoader from './components/PageLoader'
 import { generateInsights } from './utils/insights'
 import logo from './assets/logo-full.png'
@@ -26,6 +26,21 @@ import {
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
+const ANIMATION = {
+  fast: 450,
+  normal: 700,
+  slow: 900,
+  easing: 'ease-out',
+  delay: {
+    kpi: 0,
+    sparkline: 90,
+    chart: 120,
+    donut: 180,
+    ai: 520,
+    aiStep: 160,
+  },
+}
+
 
 function Typewriter({ text, speed = 18, delay = 0 }) {
   const [displayed, setDisplayed] = useState('')
@@ -50,6 +65,200 @@ function Typewriter({ text, speed = 18, delay = 0 }) {
   }, [text, speed, delay])
 
   return <span className="typewriter">{displayed}</span>
+}
+
+
+function KpiSparkline({ data, tone = 'positive' }) {
+  const rawValues = data
+    .map((value) => Number(value || 0))
+    .filter((value) => Number.isFinite(value))
+
+  if (rawValues.length < 2) return null
+
+  const hasAnyValue = rawValues.some((value) => value > 0)
+  if (!hasAnyValue) return null
+
+  // Reduz diferença absurda entre valores grandes e pequenos.
+  // Assim vários dias aparecem como "ondas", não só o maior pico.
+  const compressedValues = rawValues.map((value) => {
+    if (value <= 0) return 0
+    return Math.sqrt(value)
+  })
+
+  const maxRaw = Math.max(...compressedValues) || 1
+
+  // limita picos muito altos (tipo dia 1)
+  const max = maxRaw * 0.7
+
+  const normalizedValues = compressedValues.map((value, index) => {
+    if (value <= 0) {
+      // cria leve variação pra não ficar linha reta morta
+      const noise = (Math.sin(index * 1.7) + 1) * 0.01
+      return 0.12 + noise
+    }
+
+    const normalized = Math.min(value / max, 1)
+
+    return 0.18 + normalized * 0.82
+  })
+
+  // Suavização: cria curvas entre dias com movimento.
+  const smoothedValues = normalizedValues.map((value, index, array) => {
+    const previous = array[index - 1] ?? value
+    const next = array[index + 1] ?? value
+
+    return previous * 0.22 + value * 0.56 + next * 0.22
+  })
+
+  const points = smoothedValues.map((value, index) => {
+    const x = (index / (smoothedValues.length - 1)) * 100
+    const y = 86 - value * 52
+
+    return { x, y }
+  })
+
+  function buildSmoothPath(pointList) {
+    let path = `M ${pointList[0].x} ${pointList[0].y}`
+
+    for (let i = 1; i < pointList.length; i++) {
+      const previous = pointList[i - 1]
+      const current = pointList[i]
+      const controlX = (previous.x + current.x) / 2
+
+      path += ` C ${controlX} ${previous.y}, ${controlX} ${current.y}, ${current.x} ${current.y}`
+    }
+
+    return path
+  }
+
+  const path = buildSmoothPath(points)
+  const areaPath = `${path} L 100 100 L 0 100 Z`
+  const color = tone === 'negative' ? '#ec4899' : '#683dec'
+
+  return (
+    <svg
+      className="kpi-sparkline"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={`kpi-gradient-${tone}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.55" />
+          <stop offset="55%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+
+        <filter id={`kpi-glow-${tone}`} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.8" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <line
+        x1="0"
+        y1="90"
+        x2="100"
+        y2="90"
+        stroke={color}
+        strokeOpacity="0.12"
+        strokeWidth="1"
+      />
+
+      <path d={areaPath} fill={`url(#kpi-gradient-${tone})`} />
+
+      <path
+        key={path}
+        className="kpi-sparkline-animated-line"
+        style={{
+          '--kpi-line-duration': `${ANIMATION.slow}ms`,
+          '--kpi-line-delay': `${ANIMATION.delay.sparkline}ms`,
+        }}
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter={`url(#kpi-glow-${tone})`}
+      />
+    </svg>
+  )
+}
+
+
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
+}
+
+function formatCompactCurrency(value) {
+  return Number(value || 0)
+    .toLocaleString('pt-BR', {
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1,
+    })
+    .replace('mil', ' mil')
+    .replace('mi', ' mi')
+}
+
+function AnimatedNumber({
+  value,
+  duration = ANIMATION.normal,
+  delay = ANIMATION.delay.kpi,
+}) {
+  const [displayValue, setDisplayValue] = useState(0)
+  const currentValueRef = useRef(0)
+
+  useEffect(() => {
+    let animationFrame = null
+    let timeout = null
+    let startTime = null
+
+    const start = currentValueRef.current
+    const end = Number(value || 0)
+
+    if (start === end) {
+      setDisplayValue(end)
+      return
+    }
+
+    function animate(currentTime) {
+      if (!startTime) startTime = currentTime
+
+      const progress = Math.min((currentTime - startTime) / duration, 1)
+      const ease = 1 - Math.pow(1 - progress, 3)
+      const current = start + (end - start) * ease
+
+      currentValueRef.current = current
+      setDisplayValue(current)
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate)
+      } else {
+        currentValueRef.current = end
+        setDisplayValue(end)
+      }
+    }
+
+    timeout = setTimeout(() => {
+      animationFrame = requestAnimationFrame(animate)
+    }, delay)
+
+    return () => {
+      if (timeout) clearTimeout(timeout)
+      if (animationFrame) cancelAnimationFrame(animationFrame)
+    }
+  }, [value, duration, delay])
+
+  return formatCurrency(displayValue)
 }
 
 
@@ -103,13 +312,60 @@ function App() {
     })
   }
 
-  function formatCompactCurrency(value) {
-    return Number(value || 0).toLocaleString('pt-BR', {
-      notation: 'compact',
-      compactDisplay: 'short',
-      maximumFractionDigits: 1,
-    }).replace('mil', ' mil').replace('mi', ' mi')
+  function AnimatedBarLabel({ x, y, width, height, value, duration = ANIMATION.normal, delay = 0 }) {
+    const [displayValue, setDisplayValue] = useState(0)
+
+    useEffect(() => {
+      let frame = null
+      let startTime = null
+      let timeout = null
+
+      const end = Number(value || 0)
+
+      function animate(currentTime) {
+        if (!startTime) startTime = currentTime
+
+        const progress = Math.min((currentTime - startTime) / duration, 1)
+        const ease = 1 - Math.pow(1 - progress, 3)
+        const current = end * ease
+
+        setDisplayValue(current)
+
+        if (progress < 1) {
+          frame = requestAnimationFrame(animate)
+        }
+      }
+
+      timeout = setTimeout(() => {
+        frame = requestAnimationFrame(animate)
+      }, delay)
+
+      return () => {
+        if (timeout) clearTimeout(timeout)
+        if (frame) cancelAnimationFrame(frame)
+      }
+    }, [value, duration, delay])
+
+    return (
+      <text
+        x={x + width + 10}
+        y={y + height / 2}
+        fill="#e5e7eb"
+        fontSize={13}
+        fontWeight={600}
+        dominantBaseline="middle"
+        textAnchor="start"
+      >
+        {formatCurrency(displayValue)}
+      </text>
+    )
   }
+
+
+
+
+
+
 
   function formatAxisCurrency(value) {
     const number = Number(value || 0)
@@ -130,6 +386,7 @@ function App() {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isRefreshingData, setIsRefreshingData] = useState(false)
   const [months, setMonths] = useState([])
   const [byCategory, setByCategory] = useState([])
   const [monthlyTrend, setMonthlyTrend] = useState([])
@@ -153,6 +410,8 @@ function App() {
   }
 
   const isYearView = !filters.month
+
+  const dashboardAnimationKey = filters.month || filters.year || 'all'
 
   const reserveNet = Number(summary?.reserve_net ?? 0)
   const reserveDependency = Number(summary?.reserve_dependency ?? 0)
@@ -298,7 +557,12 @@ function App() {
 
     async function fetchData() {
       try {
-        setLoading(true)
+        if (!summary) {
+          setLoading(true)
+        } else {
+          setIsRefreshingData(true)
+        }
+
         setError('')
 
         const queryParams = new URLSearchParams()
@@ -374,6 +638,7 @@ function App() {
         setError(err.message || 'Erro inesperado')
       } finally {
         setLoading(false)
+        setIsRefreshingData(false)
       }
     }
 
@@ -497,6 +762,27 @@ function App() {
   const monthlyIncome = Number(summary?.total_income ?? 0)
   const monthlyExpenses = Number(summary?.total_expenses ?? 0)
   const monthlyBalance = monthlyIncome - monthlyExpenses
+
+  const kpiSparklineData = analysisChartData.length
+    ? analysisChartData
+    : [
+      {
+        income: monthlyIncome,
+        expenses: monthlyExpenses,
+      },
+    ]
+
+  const incomeSparklineData = kpiSparklineData.map((item) =>
+    Number(item.income || 0)
+  )
+
+  const expensesSparklineData = kpiSparklineData.map((item) =>
+    Number(item.expenses || 0)
+  )
+
+  const balanceSparklineData = kpiSparklineData.map((item) =>
+    Number(item.income || 0) - Number(item.expenses || 0)
+  )
 
   const rawCategories = byCategory
     .filter((item) => item.expense_total > 0)
@@ -711,6 +997,13 @@ function App() {
           </aside>
 
           <div className="dashboard-content">
+
+            {isRefreshingData && (
+              <div className="dashboard-refresh-indicator">
+                Atualizando dados...
+              </div>
+            )}
+
             <section className="summary-grid section-spacing">
 
               <div className="dashboard-welcome">
@@ -731,21 +1024,24 @@ function App() {
               <div className="card kpi-card kpi-income">
                 <div className="kpi-card-content">
                   <p>{isYearView ? 'Entrada anual' : 'Entrada do mês'}</p>
+
                   <h2 style={{ color: 'var(--color-positive)' }}>
-                    {formatCurrency(monthlyIncome)}
+                    <AnimatedNumber value={monthlyIncome} />
                   </h2>
+
                 </div>
-                <div className="kpi-sparkline kpi-sparkline-positive" />
+
+                <KpiSparkline data={incomeSparklineData} tone="positive" />
               </div>
 
               <div className="card kpi-card kpi-expenses">
                 <div className="kpi-card-content">
                   <p>{isYearView ? 'Saída do anual' : 'Saída do mês'}</p>
                   <h2 style={{ color: 'var(--color-negative)' }}>
-                    {formatCurrency(monthlyExpenses)}
+                    <AnimatedNumber value={monthlyExpenses} />
                   </h2>
                 </div>
-                <div className="kpi-sparkline kpi-sparkline-negative" />
+                <KpiSparkline data={expensesSparklineData} tone="negative" />
               </div>
 
               <div className="card kpi-card kpi-balance">
@@ -759,14 +1055,12 @@ function App() {
                           : 'var(--color-negative)',
                     }}
                   >
-                    {formatCurrency(monthlyBalance)}
+                    <AnimatedNumber value={monthlyBalance} />
                   </h2>
                 </div>
-                <div
-                  className={`kpi-sparkline ${monthlyBalance >= 0
-                    ? 'kpi-sparkline-positive'
-                    : 'kpi-sparkline-negative'
-                    }`}
+                <KpiSparkline
+                  data={balanceSparklineData}
+                  tone={monthlyBalance >= 0 ? 'positive' : 'negative'}
                 />
               </div>
 
@@ -788,6 +1082,12 @@ function App() {
                           innerRadius={38}
                           outerRadius={52}
                           paddingAngle={2}
+                          isAnimationActive={true}
+                          animationBegin={160}
+                          animationDuration={ANIMATION.slow}
+                          animationEasing={ANIMATION.easing}
+                          startAngle={90}
+                          endAngle={-270}
                         >
                           {(expenseByCategory.length
                             ? expenseByCategory
@@ -840,8 +1140,8 @@ function App() {
                     <p>
                       <Typewriter
                         text={insight.message}
-                        speed={18}
-                        delay={1100 + index * 800}
+                        speed={16}
+                        delay={300 + index * 140}
                       />
                     </p>
                   </div>
@@ -929,6 +1229,10 @@ function App() {
                         fill="var(--color-positive)"
                         barSize={15}
                         radius={[6, 6, 0, 0]}
+                        isAnimationActive={true}
+                        animationBegin={120}
+                        animationDuration={ANIMATION.normal}
+                        animationEasing={ANIMATION.easing}
                       />
 
                       <Bar
@@ -937,6 +1241,10 @@ function App() {
                         fill="var(--color-negative)"
                         barSize={15}
                         radius={[6, 6, 0, 0]}
+                        isAnimationActive={true}
+                        animationBegin={ANIMATION.delay.chart}
+                        animationDuration={ANIMATION.normal}
+                        animationEasing={ANIMATION.easing}
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -993,16 +1301,21 @@ function App() {
                         fill="var(--color-negative)"
                         barSize={20}
                         radius={[0, 8, 8, 0]}
+                        isAnimationActive={true}
+                        animationBegin={ANIMATION.delay.chart}
+                        animationDuration={ANIMATION.normal}
+                        animationEasing={ANIMATION.easing}
                       >
                         <LabelList
                           dataKey="value"
                           position="right"
-                          formatter={(value) => formatCurrency(value)}
-                          style={{
-                            fill: '#e5e7eb',
-                            fontSize: 13,
-                            fontWeight: 600,
-                          }}
+                          content={(props) => (
+                            <AnimatedBarLabel
+                              {...props}
+                              delay={ANIMATION.delay.chart}
+                              duration={ANIMATION.normal}
+                            />
+                          )}
                         />
                       </Bar>
                     </BarChart>
