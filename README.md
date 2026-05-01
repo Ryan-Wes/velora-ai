@@ -1,105 +1,185 @@
-# 🚀 Velora AI
-
+# 💜 Velora AI  
 Clareza financeira com inteligência artificial.
 
-Velora AI transforma extratos e faturas em insights claros — separando fluxo real de movimentações internas e mostrando para onde seu dinheiro está indo.
+Velora AI é um dashboard financeiro inteligente que transforma extratos bancários e faturas em insights visuais, categorização automática e análise clara dos seus gastos.
 
 ---
 
-## 📦 Como rodar o projeto
+## 🚀 Demonstração
 
-### ⚠️ Pré-requisitos
-
-Antes de começar, você precisa ter instalado:
-
-- Python 3.10+
-- Node.js (versão 18+)
-- Git (opcional)
+🔗 (adicione aqui quando fizer deploy)
 
 ---
 
-## 1. Baixar o projeto
+## ✨ Funcionalidades
 
-Clique em **Code → Download ZIP**  
-ou rode:
+### 📊 Dashboard inteligente
+- Visão geral de entradas, saídas e saldo
+- Gráficos interativos (mensal e diário)
+- Análise por categoria com donut dinâmico
+- Top gastos com agrupamento inteligente
+
+---
+
+### 🧠 Insights automatizados
+- Geração de insights baseada nos dados do usuário
+- Mensagens contextuais (ex: categoria dominante, saldo positivo/negativo)
+- Tooltip inteligente com interpretação dos dados
+
+---
+
+### 🗂️ Importação de dados
+- Upload de PDFs (extratos e faturas)
+- Parser específico para Nubank
+- Suporte a múltiplos meses
+- Detecção automática de tipo de arquivo
+
+---
+
+### 🎨 Personalização de categorias
+- Sistema de categorias persistido em banco
+- Edição de categorias e subcategorias
+- 🎯 Customização de cor por categoria (impacta gráficos e UI)
+- Atualização dinâmica sem reset de banco
+
+---
+
+### 🔐 Autenticação
+- Login com Supabase
+- Isolamento de dados por usuário (preparado para multiusuário)
+
+---
+
+## 🧱 Arquitetura
+
+### Backend
+- FastAPI
+- SQLite (MVP) → preparado para PostgreSQL
+- Parser modular de arquivos
+- API REST estruturada
+
+### Frontend
+- React (Vite)
+- Recharts (gráficos)
+- CSS custom (tema dark roxo)
+- UX focada em clareza e fluidez
+
+---
+
+## 📂 Estrutura do projeto
 
 ```
-git clone https://github.com/SEU_USUARIO/SEU_REPO
+backend/
+  app/
+    routes/
+    services/
+    parsers/
+    utils/
+
+frontend/
+  src/
+    components/
+    pages/
+    styles/
+    utils/
 ```
 
 ---
 
-## 2. Rodar o backend
+## ⚙️ Como rodar localmente
 
-Abra um terminal na pasta do projeto e rode:
+### 1. Clone o repositório
 
+```bash
+git clone https://github.com/seu-usuario/velora-ai.git
+cd velora-ai
 ```
+
+---
+
+### 2. Backend
+
+```bash
 cd backend
 
 python -m venv venv
-venv\Scripts\activate
+venv\Scripts\activate  # Windows
 
 pip install -r requirements.txt
 
 uvicorn app.main:app --reload
 ```
 
-Se tudo deu certo, você verá algo como:
+Backend rodando em:
+http://localhost:8000
 
-```
-Uvicorn running on http://127.0.0.1:8000
-```
+Swagger:
+http://localhost:8000/docs
 
 ---
 
-## 3. Rodar o frontend
+### 3. Frontend
 
-Abra **outro terminal** e rode:
-
-```
+```bash
 cd frontend
 
 npm install
 npm run dev
 ```
 
----
-
-## 4. Acessar o sistema
-
-Abra no navegador:
-
-```
+Frontend:
 http://localhost:5173
+
+---
+
+## 🔌 Variáveis de ambiente
+
+### Backend (.env)
+
+```
+OPENAI_API_KEY=your_key_here
 ```
 
 ---
 
-## 💡 Como usar
+### Frontend (.env)
 
-1. Vá até a página de transações  
-2. Envie um extrato ou fatura (PDF)  
-3. Volte para o dashboard  
-4. Veja os insights sendo gerados automaticamente  
-
----
-
-## 🔒 Privacidade
-
-Seus dados ficam **somente na sua máquina**.  
-Nada é enviado para servidores externos.
+```
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
 
 ---
 
-## ⚠️ Possíveis problemas
+## 🧠 Decisões técnicas importantes
 
-- Se o backend não iniciar → verifique se o Python está instalado corretamente  
-- Se o frontend falhar → verifique se o Node.js está instalado  
-- Se algo não carregar → tente atualizar a página  
+- Uso de base **caixa** (cash flow real)
+- Faturas de cartão só contam quando pagas
+- Investimentos não entram como gasto
+- Sistema preparado para múltiplos bancos no futuro
+- Categorias persistidas no banco (não hardcoded)
 
 ---
 
-## 📌 Observação
+## 🚀 Roadmap
 
-Este é um projeto em evolução.  
-Use dados de teste ou seus próprios extratos/faturas.
+- [ ] Multiusuário completo
+- [ ] Deploy público
+- [ ] Integração com mais bancos
+- [ ] Importação manual de transações
+- [ ] IA para categorização automática (RAG)
+- [ ] Exportação para Excel
+- [ ] Insights mais avançados
+
+---
+
+## 🧑‍💻 Autor
+
+Ryan Lopes  
+🔗 LinkedIn: https://www.linkedin.com/in/wryan-lopes/  
+🔗 Portfólio: https://ryan-wes.github.io/portfolio/
+
+---
+
+## 💬 Sobre o projeto
+
+Este projeto foi desenvolvido com foco em aprendizado prático, arquitetura real de produto e experiência do usuário.
