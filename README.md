@@ -1,13 +1,7 @@
-# 💜 Velora AI  
+# 📈 Velora AI 🤖  
 Clareza financeira com inteligência artificial.
 
 Velora AI é um dashboard financeiro inteligente que transforma extratos bancários e faturas em insights visuais, categorização automática e análise clara dos seus gastos.
-
----
-
-## 🚀 Demonstração
-
-🔗 (adicione aqui quando fizer deploy)
 
 ---
 
