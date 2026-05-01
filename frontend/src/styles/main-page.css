@@ -595,3 +595,181 @@
   }
 
 }
+
+
+.dashboard-transactions-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(139, 92, 246, 0.16);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+
+  transition: all 0.2s ease;
+}
+
+.dashboard-transactions-icon img {
+  width: 20px;
+  height: 20px;
+  opacity: 0.9;
+}
+
+.dashboard-transactions-icon:hover {
+  transform: translateY(-2px) scale(1.05);
+  background: rgba(139, 92, 246, 0.28);
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+.dashboard-transactions-icon:hover img {
+  opacity: 1;
+}
+
+.dashboard-transactions-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 10px 14px;
+  border-radius: 999px;
+
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.25),
+    rgba(168, 85, 247, 0.18)
+  );
+
+  border: 1px solid rgba(167, 139, 250, 0.35);
+
+  color: #f5f3ff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.dashboard-transactions-button img {
+  width: 18px;
+  height: 18px;
+  filter: brightness(0) invert(1); /* deixa branco */
+  opacity: 0.9;
+}
+
+/* 🔥 glow */
+.dashboard-transactions-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(139, 92, 246, 0.4),
+    transparent 70%
+  );
+
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+/* hover */
+.dashboard-transactions-button:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: rgba(167, 139, 250, 0.6);
+}
+
+.dashboard-transactions-button:hover::before {
+  opacity: 1;
+}
+
+.dashboard-transactions-button:hover img {
+  opacity: 1;
+}
+
+.dashboard-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard-welcome-left {
+  display: flex;
+  align-items: center;
+  gap: 150px; /* controla distância */
+}
+
+.dashboard-welcome-center {
+  justify-self: center;
+}
+
+.dashboard-welcome-right {
+  justify-self: end;
+}
+
+.transactions-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.transactions-icon {
+  width: 32px;
+  height: 32px;
+
+  background-color: #8d69f9;
+
+  mask: url('/src/assets/icons8-transacao.png') no-repeat center;
+  -webkit-mask: url('/src/assets/icons8-transacao.png') no-repeat center;
+
+  mask-size: contain;
+  -webkit-mask-size: contain;
+
+  transition: all 0.2s ease;
+}
+
+.transactions-icon:hover {
+  transform: scale(1.15);
+  background-color: #a78bfa;
+}
+
+/* hover */
+.transactions-icon:hover img {
+  transform: scale(1.15);
+  filter: brightness(0) saturate(100%)
+    invert(60%) sepia(100%)
+    saturate(900%) hue-rotate(250deg)
+    brightness(110%) contrast(110%);
+}
+
+.transactions-icon::after {
+  content: "Transações";
+  position: absolute;
+  bottom: -28px;
+
+  background: rgba(24, 10, 35, 0.95);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+
+  color: #e9d5ff;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+
+  opacity: 0;
+  transform: translateY(6px);
+  transition: transform 0.2s ease;
+
+  pointer-events: none;
+}
+
+.transactions-icon:hover::after {
+  opacity: 1;
+  transform: translateY(0);
+}

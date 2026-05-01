@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { authFetch } from './lib/authFetch'
 
+import transactionsIcon from './assets/icons8-transacao.png'
+
 import {
   BarChart,
   Bar,
@@ -987,9 +989,7 @@ function App() {
                 </div>
                 <p>Clareza financeira com inteligência artificial</p>
 
-                <a href="/transactions" className="sidebar-brand-link">
-                  Ver transações →
-                </a>
+
               </div>
               <p>Ano</p>
               <ul>
@@ -1054,18 +1054,30 @@ function App() {
             <section className="summary-grid section-spacing">
 
               <div className="dashboard-welcome">
-                <div>
-                  <h1>Olá, {userDisplayName}</h1>
-                  <p>Acompanhe seus gastos, reserva e categorias do mês.</p>
+                <div className="dashboard-welcome-left">
+                  <div>
+                    <h1>Olá, {userDisplayName}</h1>
+                    <p>Acompanhe seus gastos, reserva e categorias do mês.</p>
+                  </div>
+
+                  <a
+                    href="/transactions"
+                    className="transactions-icon"
+                    title="Transações"
+                  ></a>
                 </div>
 
-                <button
-                  type="button"
-                  className="logout-button"
-                  onClick={handleLogout}
-                >
-                  Sair
-                </button>
+
+
+                <div className="dashboard-welcome-right">
+                  <button
+                    type="button"
+                    className="logout-button"
+                    onClick={handleLogout}
+                  >
+                    Sair
+                  </button>
+                </div>
               </div>
 
               <div className="card kpi-card kpi-income">

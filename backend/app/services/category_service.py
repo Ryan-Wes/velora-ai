@@ -118,7 +118,7 @@ CATEGORY_SCHEMA = {
     },
     "outros": {
         "label": "Outros",
-        "color": "#ffd",
+        "color": "#e54ba4",
         "subcategories": {
             "outros": "Outros",
         },
