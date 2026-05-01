@@ -13,6 +13,22 @@ const FALLBACK_SUBCATEGORY_MAP = {
   nao_identificado: ['nao_identificado'],
 }
 
+const COLOR_PRESETS = [
+  '#8b5cf6', // roxo base
+  '#a78bfa',
+  '#c084fc',
+  '#e879f9',
+  '#f472b6',
+  '#fb7185',
+  '#f97316',
+  '#facc15',
+  '#4ade80',
+  '#22c55e',
+  '#38bdf8',
+  '#60a5fa',
+]
+
+
 
 function formatCategoryLabel(category) {
   if (!category) return ''
@@ -96,6 +112,7 @@ function TransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] = useState(null)
   const [userNote, setUserNote] = useState('')
   const [mainCategory, setMainCategory] = useState('')
+  const [selectedCategoryColor, setSelectedCategoryColor] = useState('')
   const [subcategory, setSubcategory] = useState('')
   const [applyToSimilar, setApplyToSimilar] = useState(false)
   const [similarPreviewCount, setSimilarPreviewCount] = useState(0)
@@ -106,6 +123,7 @@ function TransactionsPage() {
   const [aiSuggestionError, setAiSuggestionError] = useState('')
 
   const [categorySchema, setCategorySchema] = useState([])
+  const [activeColorPicker, setActiveColorPicker] = useState(null)
   const [subcategoryMap, setSubcategoryMap] = useState(FALLBACK_SUBCATEGORY_MAP)
 
   // criação de categoria
@@ -184,6 +202,7 @@ function TransactionsPage() {
 
 
 
+
   useEffect(() => {
     async function fetchMonths() {
       try {
@@ -226,6 +245,26 @@ function TransactionsPage() {
         ? nextSubcategoryMap
         : FALLBACK_SUBCATEGORY_MAP
     )
+  }
+
+  async function updateCategoryColor(categoryKey, color) {
+    try {
+      const response = await authFetch(`/api/categories/${categoryKey}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ color }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar cor')
+      }
+
+      await reloadCategorySchema()
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   async function handleCreateCategory() {
@@ -322,6 +361,8 @@ function TransactionsPage() {
       setCreatingSubcategory(false)
     }
   }
+
+
 
   useEffect(() => {
     async function loadSchema() {
@@ -671,6 +712,7 @@ function TransactionsPage() {
     setFormError('')
     setUserNote(transaction.user_note || '')
     setMainCategory(resolvedMainCategory)
+    setSelectedCategoryColor(getCategoryColor(resolvedMainCategory))
     setSubcategory(transaction.subcategory || '')
     setApplyToSimilar(false)
     setIsBulkEditMode(false)
@@ -1006,6 +1048,9 @@ function TransactionsPage() {
 
     window.addEventListener('keydown', handleKeyDown)
 
+
+
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
@@ -1082,6 +1127,9 @@ function TransactionsPage() {
           tone: 'success',
         })
       }
+
+      await updateCategoryColor(mainCategory, selectedCategoryColor)
+
 
       closeEditModal()
       await fetchTransactions(false)
@@ -1777,25 +1825,31 @@ function TransactionsPage() {
                       </td>
 
                       <td className="cell-center category-cell">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(transaction)}
-                          className="category-badge category-trigger"
-                          title="Clique para editar"
-                          style={{
-                            backgroundColor: getCategoryDisplayColor(
-                              getCategoryColor(transaction.main_category),
-                              0.15
-                            ),
-                            color: getCategoryColor(transaction.main_category),
-                            fontWeight: 600,
-                          }}
-                        >
-                          <span>
-                            {getCategoryDisplayLabel(transaction.main_category) || '-'}
-                          </span>
-                          <span className="category-chevron">˅</span>
-                        </button>
+                        <div className="category-color-wrapper">
+                          <div
+                            type="button"
+                            onClick={() => openEditModal(transaction)}
+                            className="category-badge category-trigger"
+                            title="Clique para editar"
+                            style={{
+                              backgroundColor: getCategoryDisplayColor(
+                                getCategoryColor(transaction.main_category),
+                                0.15
+                              ),
+                              color: getCategoryColor(transaction.main_category),
+                              fontWeight: 600,
+                            }}
+                          >
+                            <span>
+                              {getCategoryDisplayLabel(transaction.main_category) || '-'}
+                            </span>
+                            <span className="category-chevron">˅</span>
+
+
+                          </div>
+
+
+                        </div>
                       </td>
 
                       <td className="cell-center subcategory-cell">
@@ -1977,9 +2031,24 @@ function TransactionsPage() {
                 )}
               </div>
 
-              <label className="modal-label">
-                Categoria principal
-              </label>
+              <div className="modal-label-with-color">
+                <label className="modal-label">
+                  Categoria principal
+                </label>
+
+                <label className="category-color-picker-inline">
+                  <input
+                    type="color"
+                    value={selectedCategoryColor}
+                    onChange={(e) => setSelectedCategoryColor(e.target.value)}
+                  />
+
+                  <div
+                    className="category-color-preview"
+                    style={{ backgroundColor: selectedCategoryColor }}
+                  />
+                </label>
+              </div>
 
               <div className="modal-select-row">
                 <select
@@ -1988,11 +2057,8 @@ function TransactionsPage() {
                   onChange={(e) => {
                     const nextMainCategory = e.target.value
                     setMainCategory(nextMainCategory)
+                    setSelectedCategoryColor(getCategoryColor(nextMainCategory))
                     setSubcategory('')
-                    setShowCreateCategory(false)
-                    setShowCreateSubcategory(false)
-                    setNewCategoryLabel('')
-                    setNewSubcategoryLabel('')
                   }}
                 >
                   <option value="">Selecione</option>
@@ -2004,27 +2070,21 @@ function TransactionsPage() {
                   ))}
                 </select>
 
+
+
                 <button
                   type="button"
                   className="secondary-button modal-inline-side-button"
                   onClick={() => {
-                    setShowCreateCategory((prev) => {
-                      const nextValue = !prev
-
-                      if (nextValue) {
-                        setShowCreateSubcategory(false)
-                        setNewSubcategoryLabel('')
-                      }
-
-                      return nextValue
-                    })
-
+                    setShowCreateCategory((prev) => !prev)
                     setFormError('')
                   }}
                 >
                   {showCreateCategory ? 'X Fechar' : '+ Nova'}
                 </button>
               </div>
+
+
 
               {showCreateCategory && (
                 <div className="modal-inline-section">
@@ -2210,6 +2270,7 @@ function TransactionsPage() {
                 onChange={(e) => {
                   const nextMainCategory = e.target.value
                   setMainCategory(nextMainCategory)
+                  setSelectedCategoryColor(getCategoryColor(nextMainCategory))
                   setSubcategory('')
                 }}
               >
@@ -2377,6 +2438,7 @@ function TransactionsPage() {
                           handleManualTransactionChange('main_category', e.target.value)
                         }
                       >
+
                         <option value="">Selecione</option>
                         {categorySchema.map((category) => (
                           <option key={category.key} value={category.key}>

@@ -22,9 +22,9 @@
 }
 
 .sidebar-brand {
-  padding: 4px 2px 50px;
+  padding: 4px 2px 0px;
   border-bottom: 1px solid rgba(104, 61, 236, 0.14);
-  margin-bottom: 2px;
+  margin-bottom: 20px;
 
 }
 
@@ -141,7 +141,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-    padding: 0 4px 0;
+  padding: 0 4px 0;
 }
 
 .dashboard-welcome h1 {
@@ -327,6 +327,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: visible;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
     #1a1220;
@@ -362,6 +363,19 @@
   justify-content: space-between;
   gap: 10px;
   font-size: 13px;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  border-radius: 8px;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.donut-legend-item:hover,
+.donut-legend-item.is-active {
+  background: rgba(167, 139, 250, 0.1);
+  transform: translateX(2px);
 }
 
 .donut-legend-label {
@@ -373,10 +387,10 @@
 }
 
 .donut-legend-label span:last-child {
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 
 .donut-legend-color {
   width: 10px;
@@ -415,9 +429,53 @@
   font-size: 13px;
 }
 
+.donut-legend-item {
+  position: relative;
+}
+
+.donut-other-tooltip {
+  position: absolute;
+  left: 18px;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+
+  white-space: normal;
+  word-break: break-word;
+
+  width: 165px;
+  height: 80px;
+  padding: 10px 12px;
+  border-radius: 12px;
+
+  background: rgba(24, 10, 35, 0.98);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  color: #d8c8ff;
+  font-size: 12px;
+  line-height: 1.35;
+
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.donut-other-tooltip strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #f4f4f5;
+  font-size: 12px;
+}
+
+.donut-legend-item:hover .donut-other-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .analytics-main-card,
 .analytics-side-card {
-  height: 315px;
+  height: 310px;
 }
 
 .section-spacing {

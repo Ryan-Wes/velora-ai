@@ -302,20 +302,14 @@ def create_category(label: str, color: str | None = None) -> dict:
 
 
 def update_category(category_key: str, label: str, color: str | None = None) -> dict:
-    normalized_label = " ".join((label or "").strip().split())
-
-    if not normalized_label:
-        return {
-            "success": False,
-            "message": "Label da categoria é obrigatório",
-        }
+    normalized_label = " ".join((label or "").strip().split()) or None
 
     with get_connection() as connection:
         cursor = connection.cursor()
 
         cursor.execute(
             """
-            SELECT id, key, color
+            SELECT id, key, label, color
             FROM categories
             WHERE key = ?
             """,
@@ -334,10 +328,13 @@ def update_category(category_key: str, label: str, color: str | None = None) -> 
         cursor.execute(
             """
             UPDATE categories
-            SET label = ?, color = ?, updated_at = CURRENT_TIMESTAMP
+            SET
+                label = COALESCE(?, label),
+                color = COALESCE(?, color),
+                updated_at = CURRENT_TIMESTAMP
             WHERE key = ?
             """,
-            (normalized_label, final_color, category_key),
+            (normalized_label, color, category_key),
         )
         connection.commit()
 
@@ -345,7 +342,7 @@ def update_category(category_key: str, label: str, color: str | None = None) -> 
         "success": True,
         "message": "Categoria atualizada com sucesso",
         "key": category_key,
-        "label": normalized_label,
+        "label": normalized_label or existing_category["label"],
         "color": final_color,
     }
 

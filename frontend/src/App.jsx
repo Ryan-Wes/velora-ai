@@ -392,6 +392,7 @@ function App() {
   const [monthlyTrend, setMonthlyTrend] = useState([])
   const [dailyTrend, setDailyTrend] = useState([])
   const [categorySchema, setCategorySchema] = useState([])
+  const [activeDonutCategory, setActiveDonutCategory] = useState(null)
 
   const [filters, setFilters] = useState({
     year: '',
@@ -449,14 +450,16 @@ function App() {
   const formatCategory = (name) => {
     if (!name) return ''
 
+    if (name?.startsWith('outros_')) {
+      return 'Outros'
+    }
+
     const schemaItem = categorySchema.find((item) => item.key === name)
 
-    // prioridade total pro backend
     if (schemaItem?.label) {
       return schemaItem.label
     }
 
-    // fallback mais bonito
     return name
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase())
@@ -484,11 +487,24 @@ function App() {
     const value = Number(item.value || 0)
 
     const total = expenseByCategory.reduce(
-      (accumulator, category) => accumulator + Number(category.value || 0),
+      (acc, category) => acc + Number(category.value || 0),
       0
     )
 
     const percentage = total > 0 ? (value / total) * 100 : 0
+
+    // 🧠 texto “IA”
+    let insightText = ''
+
+    if (percentage >= 40) {
+      insightText = 'Essa categoria domina seus gastos.'
+    } else if (percentage >= 25) {
+      insightText = 'Representa uma fatia relevante do seu orçamento.'
+    } else if (percentage >= 10) {
+      insightText = 'Tem impacto moderado nos seus gastos.'
+    } else {
+      insightText = 'Participação pequena no total.'
+    }
 
     return (
       <div
@@ -498,6 +514,7 @@ function App() {
           borderRadius: '12px',
           padding: '12px 14px',
           boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
+          maxWidth: 240,
         }}
       >
         <p
@@ -518,11 +535,21 @@ function App() {
             color: '#cbd5e1',
           }}
         >
-          {`${formatCurrency(value)} • ${percentage.toFixed(1)}%`}
+          {`${formatCurrency(value)} • ${percentage.toFixed(1).replace('.', ',')}%`}
+        </p>
+
+        <p
+          style={{
+            margin: '8px 0 0',
+            fontSize: '12px',
+            color: '#a78bfa',
+            lineHeight: 1.4,
+          }}
+        >
+          {insightText}
         </p>
       </div>
     )
-
   }
 
   const iconMap = {
@@ -802,6 +829,7 @@ function App() {
 
   const visibleCategories = categoriesWithoutOthers.slice(0, MAX_VISIBLE_CATEGORIES)
   const hiddenCategories = categoriesWithoutOthers.slice(MAX_VISIBLE_CATEGORIES)
+  const hiddenCategoriesCount = hiddenCategories.length
 
   const hiddenCategoriesTotal = hiddenCategories.reduce(
     (acc, item) => acc + item.value,
@@ -811,9 +839,17 @@ function App() {
   const expenseByCategory = [
     ...visibleCategories,
     ...(hiddenCategoriesTotal > 0
-      ? [{ name: 'outros', value: hiddenCategoriesTotal }]
+      ? [{
+        name: 'outros',
+        value: hiddenCategoriesTotal,
+        hiddenCount: hiddenCategories.length,
+        hiddenNames: hiddenCategories.map((category) =>
+          formatCategory(category.name)
+        ),
+      }]
       : []),
   ]
+
 
   const donutLegendItems = expenseByCategory
 
@@ -1107,6 +1143,18 @@ function App() {
                             <Cell
                               key={`month-cell-${index}`}
                               fill={getCategoryColor(entry.name)}
+                              opacity={
+                                activeDonutCategory && activeDonutCategory !== entry.name
+                                  ? 0.35
+                                  : 1
+                              }
+                              style={{
+                                filter:
+                                  activeDonutCategory === entry.name
+                                    ? 'drop-shadow(0 0 10px rgba(255,255,255,0.28))'
+                                    : 'none',
+                                transition: 'opacity 0.22s ease, filter 0.22s ease',
+                              }}
                             />
                           ))}
                         </Pie>
@@ -1117,7 +1165,13 @@ function App() {
 
                   <div className="donut-legend">
                     {donutLegendItems.map((item) => (
-                      <div key={item.name} className="donut-legend-item">
+                      <div
+                        key={item.name}
+                        className={`donut-legend-item ${activeDonutCategory === item.name ? 'is-active' : ''
+                          }`}
+                        onMouseEnter={() => setActiveDonutCategory(item.name)}
+                        onMouseLeave={() => setActiveDonutCategory(null)}
+                      >
                         <div className="donut-legend-label">
                           <span
                             className="donut-legend-color"
@@ -1126,6 +1180,13 @@ function App() {
                             }}
                           />
                           <span>{formatCategory(item.name)}</span>
+
+                          {item.hiddenCount > 0 && (
+                            <span className="donut-other-tooltip">
+                              <strong>{item.hiddenCount} categorias agrupadas</strong>
+                              {item.hiddenNames.join(' • ')}
+                            </span>
+                          )}
                         </div>
 
                         <div className="donut-legend-values">
@@ -1171,7 +1232,7 @@ function App() {
                     : `Análise diária de ${formatFullMonthLabel(filters.month)}`}
                 </h2>
 
-                <div style={{ width: '100%', height: 260 }}>
+                <div style={{ width: '100%', height: 250 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={analysisChartData}
@@ -1269,7 +1330,7 @@ function App() {
                 <h2>{isYearView ? 'Top gastos anual' : 'Top gastos mensal'}</h2>
 
 
-                <div style={{ width: '100%', height: 260 }}>
+                <div style={{ width: '100%', height: 250 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={topExpenses}
