@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from sqlite3 import IntegrityError
 
 from fastapi import APIRouter, File, UploadFile, Depends
@@ -194,11 +197,10 @@ async def upload_file(
             )
 
         except Exception as e:
-            results.append(
-                {
-                    "filename": file.filename,
-                    "error": str(e),
-                }
-            )
+            logger.error("Upload error for file %s: %s", file.filename, str(e))
+            results.append({
+                "filename": file.filename,
+                "error": "An unexpected error occurred while processing this file.",
+            })
 
     return {"results": results}
