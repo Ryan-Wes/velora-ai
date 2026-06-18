@@ -38,9 +38,10 @@ Velora AI é um dashboard financeiro inteligente que transforma extratos bancár
 
 ---
 
-### 🔐 Autenticação
-- Login com Supabase
-- Isolamento de dados por usuário (preparado para multiusuário)
+### 🔐 Segurança
+- Seus dados são completamente isolados — nenhum outro usuário tem acesso às suas transações
+- Autenticação via JWT (Supabase) obrigatória em todos os endpoints sensíveis
+- Limites de upload para garantir estabilidade do serviço
 
 ---
 
@@ -131,7 +132,9 @@ http://localhost:5173
 ### Backend (.env)
 
 ```
-OPENAI_API_KEY=your_key_here
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_KEY=your_service_key
+OPENAI_API_KEY=your_openai_key
 ```
 
 ---
@@ -140,6 +143,8 @@ OPENAI_API_KEY=your_key_here
 
 ```
 VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ```
 
 ---
@@ -156,7 +161,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 ## 🚀 Roadmap
 
-- [ ] Multiusuário completo
+- [x] Multiusuário completo
 - [ ] Deploy público
 - [ ] Integração com mais bancos
 - [ ] Importação manual de transações
