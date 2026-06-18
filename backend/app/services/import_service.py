@@ -56,7 +56,7 @@ def create_import(
         return cursor.lastrowid
 
 
-def list_imports():
+def list_imports(user_id: str):
     with get_connection() as connection:
         cursor = connection.cursor()
 
@@ -79,27 +79,31 @@ def list_imports():
                 COUNT(t.id) AS transactions_count
             FROM imports i
             LEFT JOIN transactions t ON t.import_id = i.id
+            WHERE i.user_id = ?
             GROUP BY i.id
             ORDER BY i.id DESC
-            """
+            """,
+            (user_id,),
         )
 
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
 
 
-def list_transactions_by_import(import_id: int):
+def list_transactions_by_import(import_id: int, user_id: str):
     with get_connection() as connection:
         cursor = connection.cursor()
 
         cursor.execute(
             """
-            SELECT *
-            FROM transactions
-            WHERE import_id = ?
-            ORDER BY transaction_date DESC, id DESC
+            SELECT t.*
+            FROM transactions t
+            JOIN imports i ON i.id = t.import_id
+            WHERE t.import_id = ?
+              AND i.user_id = ?
+            ORDER BY t.transaction_date DESC, t.id DESC
             """,
-            (import_id,),
+            (import_id, user_id),
         )
 
         rows = cursor.fetchall()
