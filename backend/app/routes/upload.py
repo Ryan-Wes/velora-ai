@@ -32,6 +32,9 @@ from app.utils.file_handler import (
 
 from app.services.auth_service import get_current_user_id
 
+MAX_FILE_SIZE_MB = 20
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
 router = APIRouter()
 
 
@@ -48,6 +51,14 @@ async def upload_file(
 
         try:
             file_bytes = await file.read()
+
+            if len(file_bytes) > MAX_FILE_SIZE_BYTES:
+                results.append({
+                    "filename": file.filename,
+                    "error": f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.",
+                })
+                continue
+            
             file_hash = generate_file_hash(file_bytes)
 
             file_format = detect_file_format(file.filename)
