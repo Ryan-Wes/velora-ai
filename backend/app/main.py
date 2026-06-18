@@ -18,7 +18,6 @@ from app.routes.upload import router as upload_router
 from app.routes import imports
 from app.routes.transactions import router as transactions_router
 from app.routes.summary import router as summary_router
-from app.routes.dev import router as dev_router
 from app.routes.categories import router as categories_router
 
 from app.routes import ai
@@ -63,6 +62,8 @@ app.include_router(upload_router, prefix="/api")
 app.include_router(imports.router, prefix="/api")
 app.include_router(transactions_router, prefix="/api")
 app.include_router(summary_router, prefix="/api")
-app.include_router(dev_router, prefix="/api")
+if os.getenv("ENVIRONMENT") == "development":
+    from app.routes.dev import router as dev_router
+    app.include_router(dev_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
