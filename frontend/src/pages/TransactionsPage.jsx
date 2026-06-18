@@ -614,7 +614,7 @@ function TransactionsPage() {
       setError('')
       setUploadResults([])
 
-      const response = await authFetch('/api/dev/reset', {
+      const response = await authFetch('/api/account/reset', {
         method: 'DELETE',
       })
 

@@ -7,7 +7,7 @@ from app.services.transaction_service import normalize_category_name
 router = APIRouter(tags=["dev"])
 
 
-@router.post("/dev/normalize-categories")
+@router.post("/account/normalize-categories")
 def normalize_categories(user_id: str = Depends(get_current_user_id)):
     with get_connection() as connection:
         cursor = connection.cursor()
@@ -50,7 +50,7 @@ def normalize_categories(user_id: str = Depends(get_current_user_id)):
     }
 
 
-@router.delete("/dev/reset")
+@router.delete("/account/reset")
 def reset_database(user_id: str = Depends(get_current_user_id)):
     create_tables()
 
