@@ -9,9 +9,6 @@ ENV_PATH = BASE_DIR / ".env"
 if ENV_PATH.exists():
     load_dotenv(dotenv_path=str(ENV_PATH))
 
-print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
-print("OPENAI_API_KEY:", "OK" if os.getenv("OPENAI_API_KEY") else "MISSING")
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
