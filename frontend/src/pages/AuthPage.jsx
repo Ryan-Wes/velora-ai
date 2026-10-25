@@ -53,6 +53,34 @@ function AuthPage() {
     }
   }
 
+  async function handleForgotPassword() {
+    setError('')
+    setMessage('')
+
+    if (!email) {
+      setError('Digite seu e-mail para receber o link de recuperação.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+
+      if (resetError) {
+        throw resetError
+      }
+
+      setMessage('Se esse e-mail estiver cadastrado, você vai receber um link de recuperação.')
+    } catch (err) {
+      setError(err.message || 'Erro ao enviar o link de recuperação.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <main className="auth-page">
 
@@ -119,6 +147,17 @@ function AuthPage() {
                     : 'Criar conta'}
               </button>
             </form>
+
+            {isLogin && (
+              <button
+                type="button"
+                className="auth-switch"
+                onClick={handleForgotPassword}
+                disabled={loading}
+              >
+                Esqueci minha senha
+              </button>
+            )}
 
             <button
               type="button"

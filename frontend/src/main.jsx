@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App.jsx'
 import TransactionsPage from './pages/TransactionsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 
 import './styles/reset.css'
 import './styles/shared.css'
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<App />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
