@@ -112,6 +112,7 @@ function TransactionsPage() {
 
   const [selectedTransaction, setSelectedTransaction] = useState(null)
   const [userNote, setUserNote] = useState('')
+  const [competencyMonth, setCompetencyMonth] = useState('')
   const [mainCategory, setMainCategory] = useState('')
   const [selectedCategoryColor, setSelectedCategoryColor] = useState('')
   const [subcategory, setSubcategory] = useState('')
@@ -573,6 +574,7 @@ function TransactionsPage() {
 
   function resetEditForm() {
     setUserNote('')
+    setCompetencyMonth('')
     setMainCategory('')
     setSubcategory('')
     setApplyToSimilar(false)
@@ -712,6 +714,7 @@ function TransactionsPage() {
     setSuccessMessage('')
     setFormError('')
     setUserNote(transaction.user_note || '')
+    setCompetencyMonth(transaction.competency_month || '')
     setMainCategory(resolvedMainCategory)
     setSelectedCategoryColor(getCategoryColor(resolvedMainCategory))
     setSubcategory(transaction.subcategory || '')
@@ -1083,6 +1086,11 @@ function TransactionsPage() {
       return
     }
 
+    const competencyMonthChanged =
+      selectedTransaction.source_type === 'bank_account' &&
+      Boolean(competencyMonth) &&
+      competencyMonth !== selectedTransaction.competency_month
+
     try {
       setSavingId(selectedTransaction.id)
       setError('')
@@ -1101,6 +1109,7 @@ function TransactionsPage() {
             display_description: selectedTransaction.display_description,
             user_note: userNote || null,
             apply_to_similar: applyToSimilar,
+            ...(competencyMonthChanged && { competency_month: competencyMonth }),
           }),
         }
       )
@@ -1115,7 +1124,13 @@ function TransactionsPage() {
         throw new Error(updatedData.message || 'Erro ao atualizar categoria')
       }
 
-      if (updatedData.similar_updated_count > 0) {
+      if (competencyMonthChanged) {
+        setSuccessMessage({
+          title: 'Transação atualizada',
+          description: `Agora ela conta em ${formatMonthLabel(updatedData.competency_month)}.`,
+          tone: 'success',
+        })
+      } else if (updatedData.similar_updated_count > 0) {
         setSuccessMessage({
           title: 'Categoria atualizada',
           description: `Aplicado em ${updatedData.similar_updated_count} transações semelhantes.`,
@@ -1805,6 +1820,16 @@ function TransactionsPage() {
 
                       <td className="cell-center date-cell">
                         {formatDate(transaction.transaction_date)}
+
+                        {transaction.source_type === 'bank_account' &&
+                          transaction.competency_month !== transaction.transaction_date.slice(0, 7) && (
+                            <span
+                              className="competency-badge"
+                              title={`Conta para ${formatMonthLabel(transaction.competency_month)}`}
+                            >
+                              conta em {transaction.competency_month.slice(5, 7)}/{transaction.competency_month.slice(0, 4)}
+                            </span>
+                          )}
                       </td>
 
                       <td className="cell-left transaction-description-cell">
@@ -2196,6 +2221,41 @@ function TransactionsPage() {
                 onChange={(e) => setUserNote(e.target.value)}
                 placeholder="Ex: Pix recebido por fulano dia tal, ou gasto recorrente todo mês, etc"
               />
+
+              {selectedTransaction.source_type === 'bank_account' && (
+                <>
+                  <label className="modal-label">
+                    Conta para o mês
+                  </label>
+
+                  <div className="modal-select-row">
+                    <input
+                      type="month"
+                      className="modal-input"
+                      value={competencyMonth}
+                      onChange={(e) => setCompetencyMonth(e.target.value)}
+                    />
+
+                    <button
+                      type="button"
+                      className="secondary-button modal-inline-side-button"
+                      onClick={() =>
+                        setCompetencyMonth(selectedTransaction.transaction_date.slice(0, 7))
+                      }
+                      disabled={
+                        competencyMonth === selectedTransaction.transaction_date.slice(0, 7)
+                      }
+                    >
+                      Mês da data
+                    </button>
+                  </div>
+
+                  <p className="competency-hint">
+                    Use quando o dinheiro cai num mês mas pertence a outro, como um
+                    salário pago no fim do mês anterior. Vale só para esta transação.
+                  </p>
+                </>
+              )}
 
               <label className="checkbox-filter">
                 <input

@@ -29,6 +29,9 @@ def normalize_category_name(category: str | None) -> str:
     return normalized.strip()
 
 
+COMPETENCY_MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
 def normalize_display_description(
     raw_description: str | None,
     display_description: str | None = None,
@@ -410,16 +413,25 @@ def update_transaction_category(
     display_description: str | None = None,
     user_note: str | None = None,
     apply_to_similar: bool = False,
+    competency_month: str | None = None,
 ) -> dict:
 
     normalized_category = normalize_category_name(category) if category else None
+
+    if competency_month is not None and not COMPETENCY_MONTH_PATTERN.match(
+        str(competency_month)
+    ):
+        return {
+            "success": False,
+            "message": "Mês de competência inválido. Use o formato AAAA-MM",
+        }
 
     with get_connection() as connection:
         cursor = connection.cursor()
 
         cursor.execute(
             """
-            SELECT id, normalized_description
+            SELECT id, normalized_description, source_type
             FROM transactions
             WHERE id = ? AND user_id = ?
             """,
@@ -435,6 +447,13 @@ def update_transaction_category(
 
         base_transaction = dict(base_transaction)
         base_normalized_description = base_transaction.get("normalized_description")
+
+        # No cartão o mês é o da fatura, então só o extrato pode ser remanejado
+        if competency_month is not None and base_transaction["source_type"] != "bank_account":
+            return {
+                "success": False,
+                "message": "O mês de competência só pode ser alterado em transações do extrato",
+            }
 
         fields = []
         values = []
@@ -501,20 +520,29 @@ def update_transaction_category(
             fields.append("category_reviewed = ?")
             values.append(1)
 
-        if not fields:
+        if not fields and competency_month is None:
             return {
                 "success": False,
                 "message": "No fields to update",
             }
 
+        # O mês de competência é decisão sobre uma entrada específica,
+        # por isso fica fora de `fields`, que também alimenta o "aplicar a semelhantes"
+        current_fields = list(fields)
+        current_values = list(values)
+
+        if competency_month is not None:
+            current_fields.append("competency_month = ?")
+            current_values.append(competency_month)
+
         query = f"""
             UPDATE transactions
-            SET {', '.join(fields)}
+            SET {', '.join(current_fields)}
             WHERE id = ?
               AND user_id = ?
         """
 
-        values_for_current_transaction = [*values, transaction_id, user_id]
+        values_for_current_transaction = [*current_values, transaction_id, user_id]
         cursor.execute(query, values_for_current_transaction)
         connection.commit()
 
@@ -526,7 +554,7 @@ def update_transaction_category(
 
         similar_updated_count = 0
 
-        if apply_to_similar and base_normalized_description:
+        if apply_to_similar and base_normalized_description and fields:
             similar_query = f"""
                 UPDATE transactions
                 SET {', '.join(fields)}
@@ -554,7 +582,8 @@ def update_transaction_category(
                 display_description,
                 user_note,
                 category_source,
-                category_reviewed
+                category_reviewed,
+                competency_month
             FROM transactions
             WHERE id = ?
               AND user_id = ?
@@ -574,6 +603,7 @@ def update_transaction_category(
         "user_note": updated_row["user_note"],
         "category_source": updated_row["category_source"],
         "category_reviewed": updated_row["category_reviewed"],
+        "competency_month": updated_row["competency_month"],
         "apply_to_similar": apply_to_similar,
         "similar_updated_count": similar_updated_count,
     }

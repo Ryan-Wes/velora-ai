@@ -72,6 +72,7 @@ def update_transaction_category(
         display_description=payload.get("display_description"),
         user_note=payload.get("user_note"),
         apply_to_similar=payload.get("apply_to_similar", False),
+        competency_month=payload.get("competency_month"),
     )
 
 

@@ -341,7 +341,7 @@ def get_monthly_trend_summary(
     grouped = {}
 
     for transaction in transactions:
-        month = transaction["transaction_date"][:7]
+        month = transaction["competency_month"]
         absolute_amount = float(transaction["absolute_amount"])
 
         if month not in grouped:
