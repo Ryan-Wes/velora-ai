@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 
-from sqlite3 import IntegrityError
+from app.database import IntegrityError
 
 from fastapi import APIRouter, File, UploadFile, Depends
 

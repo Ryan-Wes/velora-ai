@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from sqlite3 import IntegrityError
+from app.database import IntegrityError
 
 from app.database import get_connection
 from app.services.transaction_normalizer import normalize_description
@@ -183,7 +183,7 @@ def get_category_schema() -> dict:
                 label,
                 color
             FROM categories
-            ORDER BY is_system DESC, label COLLATE NOCASE ASC
+            ORDER BY is_system DESC, label ASC
             """
         )
         category_rows = cursor.fetchall()
@@ -200,7 +200,7 @@ def get_category_schema() -> dict:
                     label
                 FROM subcategories
                 WHERE category_id = ?
-                ORDER BY label COLLATE NOCASE ASC
+                ORDER BY label ASC
                 """,
                 (category_id,),
             )

@@ -1,6 +1,5 @@
 import re
 import unicodedata
-from sqlite3 import IntegrityError
 from app.services.category_service import (
     is_valid_category_selection,
     map_to_main_and_subcategory,
@@ -87,82 +86,85 @@ def save_transactions(
         cursor = connection.cursor()
 
         for transaction in transactions:
-            try:
-                normalized_category = normalize_category_name(transaction.get("category"))
-                main_category, subcategory = map_to_main_and_subcategory(
-                    normalized_category,
-                    transaction.get("normalized_description"),
-                    transaction.get("transaction_type"),
-                )
+            normalized_category = normalize_category_name(transaction.get("category"))
+            main_category, subcategory = map_to_main_and_subcategory(
+                normalized_category,
+                transaction.get("normalized_description"),
+                transaction.get("transaction_type"),
+            )
 
-                cursor.execute(
-                    """
-                    INSERT INTO transactions (
-                        user_id,
-                        import_id,
-                        transaction_date,
-                        competency_month,
-                        raw_description,
-                        normalized_description,
-                        amount,
-                        absolute_amount,
-                        direction,
-                        transaction_type,
-                        category,
-                        main_category,
-                        subcategory,
-                        display_description,
-                        category_source,
-                        category_reviewed,
-                        source_name,
-                        source_type,
-                        file_format,
-                        is_ignored_in_spending,
-                        is_internal_transfer,
-                        installment_current,
-                        installment_total,
-                        transaction_hash
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        user_id,
-                        import_id,
-                        transaction["transaction_date"],
-                        transaction["competency_month"],
-                        transaction["raw_description"],
-                        transaction["normalized_description"],
-                        transaction["amount"],
-                        transaction["absolute_amount"],
-                        transaction["direction"],
-                        transaction["transaction_type"],
-                        normalized_category,
-                        main_category,
-                        subcategory,
-                        transaction.get("display_description") or transaction["raw_description"],
-                        transaction.get("category_source", "rule"),
-                        transaction.get("category_reviewed", 0),
-                        transaction["source_name"],
-                        transaction["source_type"],
-                        transaction["file_format"],
-                        transaction["is_ignored_in_spending"],
-                        transaction["is_internal_transfer"],
-                        transaction["installment_current"],
-                        transaction["installment_total"],
-                        transaction["transaction_hash"],
-                    ),
+            cursor.execute(
+                """
+                INSERT INTO transactions (
+                    user_id,
+                    import_id,
+                    transaction_date,
+                    competency_month,
+                    raw_description,
+                    normalized_description,
+                    amount,
+                    absolute_amount,
+                    direction,
+                    transaction_type,
+                    category,
+                    main_category,
+                    subcategory,
+                    display_description,
+                    category_source,
+                    category_reviewed,
+                    source_name,
+                    source_type,
+                    file_format,
+                    is_ignored_in_spending,
+                    is_internal_transfer,
+                    installment_current,
+                    installment_total,
+                    transaction_hash
                 )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                (
+                    user_id,
+                    import_id,
+                    transaction["transaction_date"],
+                    transaction["competency_month"],
+                    transaction["raw_description"],
+                    transaction["normalized_description"],
+                    transaction["amount"],
+                    transaction["absolute_amount"],
+                    transaction["direction"],
+                    transaction["transaction_type"],
+                    normalized_category,
+                    main_category,
+                    subcategory,
+                    transaction.get("display_description") or transaction["raw_description"],
+                    transaction.get("category_source", "rule"),
+                    transaction.get("category_reviewed", 0),
+                    transaction["source_name"],
+                    transaction["source_type"],
+                    transaction["file_format"],
+                    transaction["is_ignored_in_spending"],
+                    transaction["is_internal_transfer"],
+                    transaction["installment_current"],
+                    transaction["installment_total"],
+                    transaction["transaction_hash"],
+                ),
+            )
+
+            if cursor.rowcount > 0:
                 inserted_count += 1
-            except IntegrityError:
-                skipped_count += 1
-                skipped_transactions.append(
-                    {
-                        "transaction_date": transaction["transaction_date"],
-                        "raw_description": transaction["raw_description"],
-                        "amount": transaction["amount"],
-                        "transaction_hash": transaction["transaction_hash"],
-                    }
-                )
+                continue
+
+            skipped_count += 1
+            skipped_transactions.append(
+                {
+                    "transaction_date": transaction["transaction_date"],
+                    "raw_description": transaction["raw_description"],
+                    "amount": transaction["amount"],
+                    "transaction_hash": transaction["transaction_hash"],
+                }
+            )
 
         connection.commit()
 
@@ -266,9 +268,9 @@ def list_transactions(
 
         order_by = sort_map.get(sort, "transaction_date DESC, id DESC")
 
-        count_query = "SELECT COUNT(*) " + base_query
+        count_query = "SELECT COUNT(*) AS total " + base_query
         cursor.execute(count_query, params)
-        total = cursor.fetchone()[0]
+        total = cursor.fetchone()["total"]
 
         data_query = "SELECT * " + base_query
         data_query += f" ORDER BY {order_by}"
@@ -358,23 +360,20 @@ def get_transactions_summary(user_id: str) -> dict:
 
 
 def get_available_months(user_id: str) -> list[str]:
-    conn = get_connection()
-    cursor = conn.cursor()
+    with get_connection() as connection:
+        cursor = connection.cursor()
 
-    cursor.execute(
-        """
-        SELECT DISTINCT substr(competency_month, 1, 7) as month
-        FROM transactions
-        WHERE user_id = ?
-        ORDER BY month DESC
-        """,
-        (user_id,)
-    )
+        cursor.execute(
+            """
+            SELECT DISTINCT competency_month AS month
+            FROM transactions
+            WHERE user_id = ?
+            ORDER BY month DESC
+            """,
+            (user_id,)
+        )
 
-    months = [row[0] for row in cursor.fetchall()]
-    conn.close()
-
-    return months
+        return [row["month"] for row in cursor.fetchall()]
 
 
 def get_available_categories(user_id: str) -> list[str]:
@@ -388,7 +387,6 @@ def get_available_categories(user_id: str) -> list[str]:
             WHERE user_id = ?
             AND category IS NOT NULL
             AND TRIM(category) != ''
-            ORDER BY category COLLATE NOCASE ASC
             """,
             (user_id,)
         )
