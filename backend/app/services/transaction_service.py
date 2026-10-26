@@ -5,6 +5,12 @@ from app.services.category_service import (
     map_to_main_and_subcategory,
 )
 from app.database import get_connection
+from app.services.learning_service import (
+    find_learned_rule,
+    load_learned_rules,
+    remember_decision,
+    remember_decisions_for_transactions,
+)
 
 import uuid
 from datetime import datetime
@@ -29,6 +35,13 @@ def normalize_category_name(category: str | None) -> str:
 
 
 COMPETENCY_MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+# Pagamento de fatura e caixinha são movimentações fixas do sistema, não escolha de categoria
+UNLEARNABLE_TRANSACTION_TYPES = {
+    "credit_card_bill_payment",
+    "investment_application",
+    "investment_redemption",
+}
 
 
 def normalize_display_description(
@@ -81,6 +94,7 @@ def save_transactions(
     inserted_count = 0
     skipped_count = 0
     skipped_transactions = []
+    learned_rules = load_learned_rules(user_id)
 
     with get_connection() as connection:
         cursor = connection.cursor()
@@ -92,6 +106,20 @@ def save_transactions(
                 transaction.get("normalized_description"),
                 transaction.get("transaction_type"),
             )
+            category_source = transaction.get("category_source", "rule")
+
+            # O que o usuário já ensinou vale mais que as regras fixas
+            learned_rule = (
+                find_learned_rule(learned_rules, transaction.get("normalized_description"))
+                if transaction.get("transaction_type") not in UNLEARNABLE_TRANSACTION_TYPES
+                else None
+            )
+
+            if learned_rule:
+                main_category = learned_rule["main_category"]
+                subcategory = learned_rule["subcategory"]
+                normalized_category = main_category
+                category_source = "learned"
 
             cursor.execute(
                 """
@@ -139,7 +167,7 @@ def save_transactions(
                     main_category,
                     subcategory,
                     transaction.get("display_description") or transaction["raw_description"],
-                    transaction.get("category_source", "rule"),
+                    category_source,
                     transaction.get("category_reviewed", 0),
                     transaction["source_name"],
                     transaction["source_type"],
@@ -542,13 +570,24 @@ def update_transaction_category(
 
         values_for_current_transaction = [*current_values, transaction_id, user_id]
         cursor.execute(query, values_for_current_transaction)
-        connection.commit()
 
         if cursor.rowcount == 0:
             return {
                 "success": False,
                 "message": "Transaction not found",
             }
+
+        # Toda escolha manual de categoria vira regra para os próximos imports
+        if category_fields_changed:
+            remember_decision(
+                cursor,
+                user_id,
+                base_normalized_description,
+                main_category,
+                subcategory,
+            )
+
+        connection.commit()
 
         similar_updated_count = 0
 
@@ -767,6 +806,11 @@ def bulk_update_transaction_category(
 
             if cursor.rowcount > 0:
                 updated_count += 1
+
+        if category_fields_changed:
+            remember_decisions_for_transactions(
+                cursor, user_id, transaction_ids, main_category, subcategory
+            )
 
         connection.commit()
 

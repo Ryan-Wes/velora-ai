@@ -281,6 +281,22 @@ def _create_tables_sqlite() -> None:
             """
         )
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS learned_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                pattern TEXT NOT NULL,
+                main_category TEXT NOT NULL,
+                subcategory TEXT NOT NULL,
+                times_confirmed INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (user_id, pattern)
+            )
+            """
+        )
+
         _ensure_transactions_columns(cursor)
         _ensure_imports_columns(cursor)
 
@@ -369,6 +385,19 @@ _POSTGRES_SCHEMA = [
         UNIQUE (user_id, transaction_hash)
     )
     """,
+    f"""
+    CREATE TABLE IF NOT EXISTS learned_rules (
+        id BIGSERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        pattern TEXT NOT NULL,
+        main_category TEXT NOT NULL,
+        subcategory TEXT NOT NULL,
+        times_confirmed INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT {_PG_NOW},
+        updated_at TEXT NOT NULL DEFAULT {_PG_NOW},
+        UNIQUE (user_id, pattern)
+    )
+    """,
     "CREATE INDEX IF NOT EXISTS idx_transactions_user_month ON transactions (user_id, competency_month)",
     "CREATE INDEX IF NOT EXISTS idx_transactions_user_description ON transactions (user_id, normalized_description)",
     "CREATE INDEX IF NOT EXISTS idx_transactions_import ON transactions (import_id)",
@@ -377,7 +406,13 @@ _POSTGRES_SCHEMA = [
 # No Supabase toda tabela do schema public fica exposta pela API REST com a chave pública (anon).
 # Com RLS ligado e sem nenhuma policy, essa chave não lê nada; o backend conecta como dono do
 # banco, que ignora o RLS.
-_POSTGRES_RLS_TABLES = ["imports", "categories", "subcategories", "transactions"]
+_POSTGRES_RLS_TABLES = [
+    "imports",
+    "categories",
+    "subcategories",
+    "transactions",
+    "learned_rules",
+]
 
 
 def _create_tables_postgres() -> None:

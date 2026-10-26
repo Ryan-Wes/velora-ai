@@ -24,7 +24,7 @@ def suggest_category_route(
             "message": "Descrição é obrigatória"
         }
 
-    result = suggest_category(description)
+    result = suggest_category(description, user_id)
 
     return {
         "success": True,

@@ -14,6 +14,13 @@ const FALLBACK_SUBCATEGORY_MAP = {
   nao_identificado: ['nao_identificado'],
 }
 
+const SOURCE_LABELS = { manual: 'Manual', learned: 'Aprendida', rule: 'Auto' }
+const SOURCE_DETAIL_LABELS = {
+  manual: 'Manual',
+  learned: 'Aprendida com suas escolhas',
+  rule: 'Automática',
+}
+
 const COLOR_PRESETS = [
   '#8b5cf6', // roxo base
   '#a78bfa',
@@ -1655,6 +1662,7 @@ function TransactionsPage() {
                   >
                     <option value="">Todas as definições</option>
                     <option value="manual">Manual</option>
+                    <option value="learned">Aprendida</option>
                     <option value="rule">Auto</option>
                   </select>
                 </div>
@@ -1900,10 +1908,12 @@ function TransactionsPage() {
                         <span
                           className={`source-badge ${transaction.category_source === 'manual'
                             ? 'source-manual'
-                            : 'source-auto'
+                            : transaction.category_source === 'learned'
+                              ? 'source-learned'
+                              : 'source-auto'
                             }`}
                         >
-                          {transaction.category_source === 'manual' ? 'Manual' : 'Auto'}
+                          {SOURCE_LABELS[transaction.category_source] || 'Auto'}
                         </span>
                       </td>
 
@@ -1985,7 +1995,7 @@ function TransactionsPage() {
                 <div className="modal-meta-row">
                   <span className="modal-meta-label">Origem</span>
                   <span className="modal-meta-value">
-                    {selectedTransaction.category_source === 'manual' ? 'Manual' : 'Automática'}
+                    {SOURCE_DETAIL_LABELS[selectedTransaction.category_source] || 'Automática'}
                   </span>
                 </div>
 

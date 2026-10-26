@@ -409,6 +409,11 @@ button:disabled {
   color: #c4b5fd;
 }
 
+.source-learned {
+  background: #172a3d;
+  color: #7dd3fc;
+}
+
 .source-manual {
   background: #163322;
   color: #86efac;
