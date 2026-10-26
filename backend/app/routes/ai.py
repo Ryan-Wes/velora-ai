@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Body, Depends, Request, HTTPException
 from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.services.ai_service import suggest_category
 from app.services.auth_service import get_current_user_id
 
 router = APIRouter(prefix="/ai", tags=["AI"])
-limiter = Limiter(key_func=lambda request: request.state.user_id)
+limiter = Limiter(key_func=lambda request: getattr(request.state, "user_id", None) or get_remote_address(request))
 
 
 @router.post("/suggest-category")
@@ -14,8 +15,6 @@ def suggest_category_route(
     payload: dict = Body(...),
     user_id: str = Depends(get_current_user_id),
 ):
-    request.state.user_id = user_id
-
     description = payload.get("description", "")
 
     if not description:
